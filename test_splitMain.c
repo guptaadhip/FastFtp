@@ -13,15 +13,15 @@ int main(int argc, char *argv[]) {
 	if (argc < 3){
 		errno = EINVAL;
 		errorHandler(NULL,true);
-	}else if(argc > 3){
+	} else if (argc > 3) {
 		errno = E2BIG;
 		errorHandler(NULL,true);
 	}
 	
 	strcpy(serverName,argv[1]); 
 	strcpy(filePath,argv[2]);
-	//fprintf(stdout,"%s\n",filePath);
-	printf("%d",splitFile(filePath, 10));
-	//splitFile(filePath, 10)
+
+	splitFile(filePath, 10);
+
 	return 0;
 }
