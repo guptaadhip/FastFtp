@@ -21,12 +21,12 @@ int splitFile(char* fileName, int splitCount) {
  *	Parameter 	- None
  *	Return		- NULL
  */
-void printUsage(){
-	fprintf(stdout, "fsft [-d destination] [-f filename]\n");   
-	fprintf(stdout, "\tRequired arguments:\n");
-	fprintf(stdout, "\t-d, --destination \t: Send file the specified " 
-                                                    "destination.\n");
-	fprintf(stdout, "\t-f, --file-name \t: Read the specified file.\n");
+void printUsage() {
+  fprintf(stdout, "Fast & Reliable File Transfer Protocol. Usage:\n");
+	fprintf(stdout, "fsft [ServerName] [FilePath]\n\n");   
+	fprintf(stdout, "Required arguments:\n");
+	fprintf(stdout, "\t[ServerName] : Server IP Address or Hostname\n");
+	fprintf(stdout, "\t[FilePath] : File Path\n");
 }
 
 /* Error Function */
