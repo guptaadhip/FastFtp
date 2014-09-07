@@ -12,6 +12,18 @@ int splitFile(char* fileName, int splitCount) {
   return rc;
 }
 
+/* 
+ *	Function 	- usage - Prints the Usage Details
+ *	Parameter 	- None
+ *	Return		- NULL
+ */
+void usage(){
+	printf("fsft [-d destination] [-f filename]\n");   
+	printf("\tRequired arguments:\n");
+	printf("\t-d, --destination \t: Send file the specified destination.\n");
+	printf("\t-f, --file-name \t: Read the specified file.\n");
+}
+
 /* Error Function */
 void errorHandler(char *msg, bool usage) {
   /* print the error */
@@ -23,7 +35,7 @@ void errorHandler(char *msg, bool usage) {
   
   if (usage) {
     fprintf(stdout, "\n");
-    printUsage();
+    usage();
   }
   /* Exit the program */
   exit(0);
