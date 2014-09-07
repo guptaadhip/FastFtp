@@ -12,7 +12,7 @@ int splitFile(char* fileName, int splitCount) {
   char splitCountStr[10];
   int rc = 0;
   sprintf(splitCountStr, "%d", splitCount);
-  rc = execl(SPLIT, SPLIT, fileName, "-n", splitCount, (char *) 0);
+  rc = execl(SPLIT, SPLIT, fileName, "-n ", splitCount, (char *) 0);
   return rc;
 }
 
@@ -22,11 +22,11 @@ int splitFile(char* fileName, int splitCount) {
  *	Return		- NULL
  */
 void printUsage() {
-  fprintf(stdout, "Fast & Reliable File Transfer Protocol. Usage:\n");
-	fprintf(stdout, "fsft [ServerName] [FilePath]\n\n");   
-	fprintf(stdout, "Required arguments:\n");
-	fprintf(stdout, "\t[ServerName] : Server IP Address or Hostname\n");
-	fprintf(stdout, "\t[FilePath] : File Path\n");
+  fprintf(stdout, "Fast & Reliable File Transfer Protocol.\nUsage:\n");
+	fprintf(stdout, "\tfsft [ServerName] [FilePath]\n");   
+	fprintf(stdout, "\tRequired arguments:\n");
+	fprintf(stdout, "\t\t[ServerName] : Server IP Address or Hostname\n");
+	fprintf(stdout, "\t\t[FilePath] : File Path\n");
 }
 
 /* Error Function */
