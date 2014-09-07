@@ -1,5 +1,9 @@
 #include "include/util.h"
 #include <unistd.h>
+#include <errno.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
 #define SPLIT "/usr/bin/split"
 
@@ -17,11 +21,12 @@ int splitFile(char* fileName, int splitCount) {
  *	Parameter 	- None
  *	Return		- NULL
  */
-void usage(){
-	printf("fsft [-d destination] [-f filename]\n");   
-	printf("\tRequired arguments:\n");
-	printf("\t-d, --destination \t: Send file the specified destination.\n");
-	printf("\t-f, --file-name \t: Read the specified file.\n");
+void printUsage(){
+	fprintf(stdout, "fsft [-d destination] [-f filename]\n");   
+	fprintf(stdout, "\tRequired arguments:\n");
+	fprintf(stdout, "\t-d, --destination \t: Send file the specified " 
+                                                    "destination.\n");
+	fprintf(stdout, "\t-f, --file-name \t: Read the specified file.\n");
 }
 
 /* Error Function */
@@ -35,7 +40,7 @@ void errorHandler(char *msg, bool usage) {
   
   if (usage) {
     fprintf(stdout, "\n");
-    usage();
+    printUsage();
   }
   /* Exit the program */
   exit(0);
