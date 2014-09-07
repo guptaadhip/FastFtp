@@ -12,7 +12,8 @@ int splitFile(char* fileName, int splitCount) {
   char splitCountStr[10];
   int rc = 0;
   sprintf(splitCountStr, "%d", splitCount);
-  rc = execl(SPLIT, SPLIT, fileName, "-n ", splitCount, (char *) 0);
+  rc = execl(SPLIT, SPLIT, fileName, "-n", splitCountStr, (char *) 0);
+  printf("Error: %d\n", rc);
   return rc;
 }
 
