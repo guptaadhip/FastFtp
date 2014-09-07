@@ -3,4 +3,6 @@
 
 int splitFile(char* fileName, int splitCount);
 
+void usage();
+
 #endif
