@@ -24,6 +24,5 @@ int main(int argc, char *argv[]) {
 
 	splitFile(filePath, SPLIT_COUNT);
 
-  /* process creation */
 	return 0;
 }
