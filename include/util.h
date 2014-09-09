@@ -18,7 +18,7 @@ pid_t processID[MAX_PROCESS];
 pid_t getProcessID();	/* get Process ID */
 pid_t getParentProcessID();	/* get Parent Process ID */
 int joinProcess(int iProcessID);	/* get Join Process ID */
-int killProcess(int iProcessID, int signal);	/* get Kill Process ID */
+void killProcess(int iProcessID, int signal);	/* Kill Process ID */
 void handleKill(int i, siginfo_t *info, void *dummy);
 
 #endif
