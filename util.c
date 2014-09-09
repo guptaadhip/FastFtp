@@ -12,8 +12,7 @@
 struct processHandler *processHandle;
 
 int splitFile(char* fileName, int splitCount) {
-  char command[256];
-  char splitCountStr[10];
+  char splitCountStr[SPLIT_COUNT];
   int rc = 0;
   sprintf(splitCountStr, "%d", splitCount);
   rc = execl(SPLIT, SPLIT, fileName, "-n", splitCountStr, (char *) 0);
@@ -56,7 +55,7 @@ void initializeProcessHandler(){
 		int icounter = 0;
 		
 		for(icounter = 0;icounter < MAX_PROCESS;icounter++){
-			processID[icounter] = 0;
+			processID[icounter] = -1;
 		}
 }
 
@@ -78,13 +77,14 @@ pid_t getParentProcessID(){
 /* get Join Process ID */
 int joinProcess(int iprocessID);
 
-/* get Kill Process ID */
-int killProcess(int iProcessID, int signal){
+/* Kill Process ID */
+void killProcess(int iProcessID, int signal){
 	if(processID[iProcessID] != 0){
 		if(kill(processID[iProcessID],signal) == 0){
 			processID[iProcessID] = 0;
 		}
 	}
+	printf("killProcess");
 }
 
 /* 
