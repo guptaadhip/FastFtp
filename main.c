@@ -50,7 +50,7 @@ int main(int argc, char *argv[]) {
 		wait(&splitPID); /* Wait for the file to Split */
 		
 		splitFileName[0]= 120;
-		splitFileName[4]= '\0';
+		splitFileName[3]= '\0';
 		
 		while(icounter <= MAX_PROCESS){
 			processID[icounter] = fork();
@@ -59,7 +59,7 @@ int main(int argc, char *argv[]) {
 				printf("Child Process-%d\n",icounter+1);
 				
 				/* Generate splitted file name */
-				splitFileName[1] = icounter % 26 + 97;
+				splitFileName[1] = ((int) (icounter / 26)) + 97;
 				splitFileName[2] = icounter + 97; 
 				
 				//Open the stream. Note "b" to avoid DOS/UNIX new line conversion.
@@ -81,7 +81,7 @@ int main(int argc, char *argv[]) {
 
 				//Close the file
 				fclose(stream);
-//				printf("Got the entire file part-%d\n",icounter+1);
+				printf("Got the entire file part-%d\n",icounter+1);
 				
 				//killProcess(icounter, SIGKILL); Not working
 				exit(0); /* Kill Child */
