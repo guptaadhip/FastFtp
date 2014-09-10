@@ -13,7 +13,7 @@
 #include <netdb.h>
 
 #define SPLITS 4
-
+#define DGRAM_SIZE 65500
 long int splitSize = 0;
 char f_name[50];
 char *splits[SPLITS];
@@ -37,7 +37,9 @@ void bufferFile() {
 }
 
 void startUdp(int chunk, int portNo, struct sockaddr_in addr) {
+  int sendPtr = 0;
   int udpSocket;
+  int sendSize = DGRAM_SIZE;
   socklen_t cliLen;
   struct sockaddr_in cliAddr;
   udpSocket = socket(AF_INET, SOCK_DGRAM, 0);
@@ -50,11 +52,21 @@ void startUdp(int chunk, int portNo, struct sockaddr_in addr) {
   inet_aton(inet_ntoa(addr.sin_addr), &cliAddr.sin_addr);
   cliAddr.sin_port = htons(portNo);
   cliLen = sizeof(cliAddr);
-  if(sendto(udpSocket, splits[0], splitSize, 0, (struct sockaddr *)&cliAddr,
-        cliLen) < 0) {
-    fprintf(stderr, "Error: Sending Data");
-    exit(1);
+  while (sendPtr <= splitSize) {
+    /* send only the amount left */
+    if ((splitSize - sendPtr) < DGRAM_SIZE) {
+      sendSize = splitSize - sendPtr;
+    } else {
+      sendSize = DGRAM_SIZE;
+    }
+    if(sendto(udpSocket, (splits[0] + sendPtr), sendSize, 0, 
+             (struct sockaddr *)&cliAddr, cliLen) < 0) {
+      fprintf(stderr, "Error: Sending Data");
+      exit(1);
+    }
+    sendPtr += DGRAM_SIZE;
   }
+
   close(udpSocket);
 }
 

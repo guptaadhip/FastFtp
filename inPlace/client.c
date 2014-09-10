@@ -8,11 +8,13 @@
 #include <netdb.h>
 
 #define UDP_PORT 7865
+#define DGRAM_SIZE 65500
 
 char *splits[4];
 long int splitLength = 0;
 
 void startUdp() {
+  int readPtr = 0;
   struct sockaddr_in cliAddr, serAddr; 
   socklen_t cliAddrLen;
   int socketFd, rc;
@@ -25,19 +27,24 @@ void startUdp() {
   serAddr.sin_family = AF_INET;
   serAddr.sin_addr.s_addr = INADDR_ANY;
   serAddr.sin_port = htons(UDP_PORT);
-   printf("port number %d\n", ntohs(serAddr.sin_port));
+  //printf("port number %d\n", ntohs(serAddr.sin_port));
   if (bind(socketFd, (struct sockaddr *) &serAddr, sizeof(serAddr)) < 0) {
     fprintf(stderr, "Error: Binding to Socket");
     exit(1);
   }
   cliAddrLen = sizeof(cliAddr);
   bzero(splits[0], splitLength);
-  rc = recvfrom(socketFd, splits[0], splitLength, 0, (struct sockaddr *) &cliAddr,
-      &cliAddrLen);
-  if (rc < 0) {
-    fprintf(stderr, "Error: Receiving Data");
-    exit(1);
+  while (readPtr < splitLength) {
+    rc = recvfrom(socketFd, (splits[0] + readPtr), DGRAM_SIZE, 0, 
+          (struct sockaddr *) &cliAddr, &cliAddrLen);
+    if (rc < 0) {
+      fprintf(stderr, "Error: Receiving Data");
+      exit(1);
+    }
+    readPtr += rc;
+    printf("Data Read: %d, Total Data: %d\n", rc, readPtr);
   }
+
   close(socketFd);
   printf("%s\n", splits[0]);
   exit(0);
