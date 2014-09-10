@@ -10,6 +10,8 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 
+#include <netdb.h> 
+
 #include "include/globalDefs.h"
 #include "include/util.h"
 
@@ -18,8 +20,8 @@ int main(int argc, char *argv[]) {
 	double time_spent;
 	
 	/* Arguments */
-	char filePath[ARG_MAX];
-	char serverName[ARG_MAX];
+	//char filePath[ARG_MAX];
+	//char serverName[ARG_MAX];
 	
 	int icounter = 0; /* Counter to spawn new process */
 	int splitPID;			/* split file process ID */
@@ -46,23 +48,30 @@ int main(int argc, char *argv[]) {
 	act.sa_flags=SA_SIGINFO;
 	sigaction(SIGINT, &act, NULL);
 	
-	if (argc < 3){
+	//No arguments for sender, but using now for UDP server hostname
+	if (argc < 2){
 		errno = EINVAL;
 		errorHandler(NULL,true);
-	} else if (argc > 3) {
+	} else if (argc > 2) {
 		errno = E2BIG;
 		errorHandler(NULL,true);
 	}
 	
-	strcpy(serverName,argv[1]); 
-	strcpy(filePath,argv[2]);
-
+	struct hostent *serverName;
+	serverName = gethostbyname(argv[1]);
+	//strcpy(serverName,argv[1]); 
+	printf("test");
+	if (serverName == NULL){
+		errorHandler("ERROR: Invalid host\n",false);
+  }
+	receiverSocketLength = sizeof(struct sockaddr_in);
+	
 	initializeProcessHandler();
 	//printf("Start Time: %f \n", (double)(clock()) / CLOCKS_PER_SEC);
 	splitPID = fork();
 	
 	if(splitPID == 0){
-		splitFile(filePath, SPLIT_COUNT);
+		splitFile("main.c", SPLIT_COUNT);
 	}else{
 		//begin = clock();
 		//sleep(10);
@@ -102,12 +111,15 @@ int main(int argc, char *argv[]) {
 				size_t size=fread(contents,1,fileSize,stream);
 				contents[size]=0; // Add terminating zero.
 
-				//printf("Read %s\n", contents);
-
+				printf("Read %d\n", (int) size);
+				//printf("Read %s\n", contents);	
+				
 				//Close the file
 				fclose(stream);
+				//printf("%d   File starts - \n %s", icounter+1,contents);
 				printf("Got the entire file part-%d\n",icounter+1);
 				
+				begin = clock();
 				/* Create a UDP Socket */
 				senderSocketFD = socket(AF_INET, SOCK_DGRAM, 0);
 				
@@ -117,32 +129,36 @@ int main(int argc, char *argv[]) {
 				
 				bzero((char *) &senderAddress, sizeof(senderAddress));
 				
-				senderPortNo = icounter + 44444;
+				senderPortNo = icounter + 3333;
 				senderAddress.sin_family = AF_INET;
-				senderAddress.sin_addr.s_addr = INADDR_ANY;
+				//senderAddress.sin_addr.s_addr = INADDR_ANY;
+				bcopy((char *)serverName->h_addr, (char *)&senderAddress.sin_addr.s_addr, serverName->h_length);
 				senderAddress.sin_port = htons(senderPortNo);
 				
-				if (bind(senderSocketFD, (struct sockaddr *) &senderAddress, sizeof(senderAddress)) < 0){
-					errorHandler("Sender Socket Bind Error!",false);
-				}
-	
-				receiverSocketLength = sizeof(receiverAddress);
+				//if (bind(senderSocketFD, (struct sockaddr *) &senderAddress, sizeof(senderAddress)) < 0){
+					//errorHandler("Sender Socket Bind Error!",false);
+				//}
+
 				bzero(sendbuffer, BUFFER_LENGTH);
+				socklen_t senderAddressLength = sizeof(senderAddress);
 				
-				recvfromID = recvfrom(senderSocketFD,sendbuffer,BUFFER_LENGTH,0,(struct sockaddr *)&receiverAddress,&receiverSocketLength);
+				if(sendto(senderSocketFD,contents,BUFFER_LENGTH,0,(struct sockaddr *) &senderAddress,senderAddressLength) < 0){
+					errorHandler("Sending Error!",false);
+				}
+				
+				
+				recvfromID = recvfrom(senderSocketFD,sendbuffer,BUFFER_LENGTH,0,(struct sockaddr *)&senderAddress,&receiverSocketLength);
 				
 				if(recvfromID < 0){
 					errorHandler("Receiving Error!",false);
 				}
-				
-				fprintf(stdout, "Here is the message: %s\n",sendbuffer);
-				
-				/* Send File to Receiver */
-				if(sendto(senderSocketFD, contents, fileSize, 0, (struct sockaddr *)&receiverAddress, receiverSocketLength) < 0) {
-					errorHandler("Send Error!",false);
-				}
+				fprintf(stdout, "%s\n",sendbuffer);
+				fprintf(stdout, "Done!\n");
 				
 				close(senderSocketFD);
+				end = clock();
+				time_spent = (double)(end - begin) / CLOCKS_PER_SEC;
+				printf("Time taken: %f  for Split - %d\n", time_spent,icounter+1);
 				
 				//fileSend(senderSocketFD, receiverAddress, receiverSocketLength, );
 				

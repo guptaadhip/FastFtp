@@ -5,6 +5,6 @@
 #define SPLIT_COUNT 5 /* number of chunks to split the file */
 #define MAX_PROCESS 5 /* number of process to be forked */
 
-#define BUFFER_LENGTH 512 // Buffer length
+#define BUFFER_LENGTH 2184 // Buffer length
 
 #endif
