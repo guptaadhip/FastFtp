@@ -8,6 +8,9 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <errno.h>
+#include <time.h>
+#include <arpa/inet.h>
+#include <netdb.h>
 
 #define SPLITS 4
 
@@ -33,13 +36,42 @@ void bufferFile() {
   fclose(stream);
 }
 
+void startUdp(int chunk, int portNo, struct sockaddr_in addr) {
+  int udpSocket;
+  socklen_t cliLen;
+  struct sockaddr_in cliAddr;
+  udpSocket = socket(AF_INET, SOCK_DGRAM, 0);
+  if (udpSocket < 0) {
+    fprintf(stderr, "Error: Creating UDP Socket");
+    exit(1);
+  }
+  bzero((char *) &cliAddr, sizeof(cliAddr));
+  cliAddr.sin_family = AF_INET;
+  inet_aton(inet_ntoa(addr.sin_addr), &cliAddr.sin_addr);
+  cliAddr.sin_port = htons(portNo);
+  cliLen = sizeof(cliAddr);
+  if(sendto(udpSocket, splits[0], splitSize, 0, (struct sockaddr *)&cliAddr,
+        cliLen) < 0) {
+    fprintf(stderr, "Error: Sending Data");
+    exit(1);
+  }
+  close(udpSocket);
+}
+
+
 int main(int argc, char *argv[]) {
   int sockfd, newsockfd, portno;
   socklen_t clilen;
+  int udpPort;
   char recv_udp_port[sizeof(int) + 1];
   struct sockaddr_in serv_addr, cli_addr;
   int n;
-	 
+	
+  /* timing */
+  clock_t begin, end;
+  double time_spent;
+  begin = clock();
+
 	// Checking for valid inputs
   if (argc < 3) {
     fprintf(stderr, "ERROR: no port provided");
@@ -82,7 +114,7 @@ int main(int argc, char *argv[]) {
 		
   // reading Receiver's UDP port number
   bzero(recv_udp_port,sizeof(int) + 1);
-	n = read(newsockfd,recv_udp_port,sizeof(int));
+	n = read(newsockfd,recv_udp_port, sizeof(recv_udp_port));
   if (n < 0) {
     fprintf(stderr, "ERROR reading from socket");
     exit(1);
@@ -93,11 +125,20 @@ int main(int argc, char *argv[]) {
 	char info[200];
 	sprintf(info, "%d %ld", SPLITS, splitSize); 
 	n = write(newsockfd, info, sizeof(info));
-
   if (n < 0) {
     fprintf(stderr, "ERROR writing to socket");
     exit(1);
   }
+  udpPort = atoi(recv_udp_port);
+  /* lets send the first chunk */
+  /* to be done: Handle the timing in such a way that the 
+   * sleep is not required */
+  sleep(1);
+  startUdp(0, udpPort, cli_addr);
+  /* timing */
+  end = clock();
+  time_spent = (double)(end - begin) / CLOCKS_PER_SEC;
+  printf("Time taken: %f\n", time_spent);
 
 	// closing sockets
   close(newsockfd);

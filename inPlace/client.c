@@ -5,14 +5,50 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
-#include <netdb.h> 
+#include <netdb.h>
+
+#define UDP_PORT 7865
+
+char *splits[4];
+long int splitLength = 0;
+
+void startUdp() {
+  struct sockaddr_in cliAddr, serAddr; 
+  socklen_t cliAddrLen;
+  int socketFd, rc;
+  socketFd = socket(AF_INET, SOCK_DGRAM, 0);
+  if (socketFd < 0) {
+    fprintf(stderr, "Error: Creating Socket");
+    exit(1);
+  }
+  bzero((char *) &serAddr, sizeof(serAddr));
+  serAddr.sin_family = AF_INET;
+  serAddr.sin_addr.s_addr = INADDR_ANY;
+  serAddr.sin_port = htons(UDP_PORT);
+   printf("port number %d\n", ntohs(serAddr.sin_port));
+  if (bind(socketFd, (struct sockaddr *) &serAddr, sizeof(serAddr)) < 0) {
+    fprintf(stderr, "Error: Binding to Socket");
+    exit(1);
+  }
+  cliAddrLen = sizeof(cliAddr);
+  bzero(splits[0], splitLength);
+  rc = recvfrom(socketFd, splits[0], splitLength, 0, (struct sockaddr *) &cliAddr,
+      &cliAddrLen);
+  if (rc < 0) {
+    fprintf(stderr, "Error: Receiving Data");
+    exit(1);
+  }
+  close(socketFd);
+  printf("%s\n", splits[0]);
+  exit(0);
+}
 
 int main(int argc, char *argv[]) {
   int sockfd, portno, n;
   struct sockaddr_in serv_addr;
   struct hostent *server;
   char buffer[200];
-  char *udp_port;
+  char udp_port[6];
 	
   if (argc < 3) {
     fprintf(stderr,"usage %s hostname port\n", argv[0]);
@@ -40,8 +76,8 @@ int main(int argc, char *argv[]) {
     fprintf(stderr, "ERROR connecting");
     exit(1);
   }
-
-  asprintf(&udp_port, "%d", 7007);
+  bzero(&udp_port, sizeof(udp_port));
+  sprintf(udp_port, "%ld", (long int) UDP_PORT);
   n = write(sockfd, udp_port,sizeof(udp_port));
   if (n < 0) { 
     fprintf(stderr, "ERROR writing to socket");
@@ -53,9 +89,12 @@ int main(int argc, char *argv[]) {
   if (n < 0) {
     fprintf(stderr, "ERROR reading from socket");
     exit(1);
-  }
-    
-	fprintf(stdout, "%s\n", buffer);
+  } 
+  splitLength = atol((buffer+2));
+  splits[0] = malloc(splitLength+1);
+  /* creating the udp */
+  /* this needs to be forked */
+  startUdp();
   close(sockfd);
   return 0;
 }
