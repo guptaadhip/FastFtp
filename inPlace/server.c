@@ -205,7 +205,8 @@ int main(int argc, char *argv[]) {
 	/* Parent processes waits for child processes to terminate 
 	Signal Handling left !! 
 	*/
-	while (wait(&status) != -1);
+	while (wait(&status) != -1)
+    ;
   //startUdp(0, udpPort, cli_addr);
   /* timing */
   gettimeofday(&t1, 0); 

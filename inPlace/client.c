@@ -7,6 +7,7 @@
 #include <netinet/in.h>
 #include <netdb.h>
 #include <sys/wait.h>
+#include <sys/time.h>
 
 #define UDP_PORT 7865
 #define DGRAM_SIZE 65535
@@ -15,6 +16,19 @@
 char *splits[SPLITS];	/* number of splits */
 long int splitLength = 0;
 int numSplits = 0;  		/* number of splits */
+
+/* Code for File writing*/
+void writeToFile() {
+    long int fileSize = 0;
+    int i = 0;
+    size_t size = 0;
+    FILE *op;
+    op = fopen("Received.txt", "wab");
+    for(i = 0; i < SPLITS; i++) {
+        size=fwrite(splits[i],1,splitLength,op);
+    }
+    fclose(op);
+}
 
 void startUdp(int pcounter) {
   long int seqNum = 0;
@@ -171,8 +185,12 @@ int main(int argc, char *argv[]) {
 	/* Parent processes waits for child processes to terminate 
 	Signal Handling left !! 
 	*/
-	while (wait(&status) != -1);
+	while (wait(&status) != -1)
+    ;
   //startUdp();
+    
+  /* writing the data received to a file */
+  writeToFile();
   close(sockfd);
   return 0;
 }
