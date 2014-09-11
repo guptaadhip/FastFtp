@@ -13,7 +13,7 @@
 #include <netdb.h>
 
 #define SPLITS 4
-#define DGRAM_SIZE 512
+#define DGRAM_SIZE 65500
 long int splitSize = 0;
 char f_name[50];
 char *splits[SPLITS];
@@ -27,7 +27,7 @@ void bufferFile() {
   fseek(stream, 0L, SEEK_END);
   fileSize = ftell(stream);
   fseek(stream, 0L, SEEK_SET);
-  splitSize = fileSize / SPLITS;
+  splitSize = fileSize / SPLITS + 1;
   for(i = 0; i < SPLITS; i++) {
     splits[i] = malloc(splitSize+1);
     size=fread(splits[i],1,splitSize,stream);

@@ -8,14 +8,14 @@
 #include <netdb.h>
 
 #define UDP_PORT 7865
-#define DGRAM_SIZE 512
+#define DGRAM_SIZE 65535
 
 char *splits[4];
 long int splitLength = 0;
 
 void startUdp() {
-  int seqNum = 0;
-  int readPtr = 0;
+  long int seqNum = 0;
+  long int readPtr = 0;
   char buffer[65535];
   char *temp;
   char seqStr[10];
@@ -37,7 +37,8 @@ void startUdp() {
   }
   cliAddrLen = sizeof(cliAddr);
   bzero(splits[0], splitLength);
-  while (readPtr < splitLength) {
+  /* hack in while to make it quit */
+  while ((seqNum + rc) < splitLength) {
     bzero(buffer, sizeof(buffer));
     rc = recvfrom(socketFd, buffer, DGRAM_SIZE, 0, 
           (struct sockaddr *) &cliAddr, &cliAddrLen);
@@ -50,17 +51,18 @@ void startUdp() {
     memcpy(seqStr, buffer, (temp - buffer));
     seqNum = atoi(seqStr);
     readPtr += rc;
+    readPtr -= strlen(seqStr);
     /* copy the data to the right place */
     if (seqNum == 0) {
       memcpy((splits[0]+seqNum-1), (buffer+strlen(seqStr)), (rc-strlen(seqStr)));
     } else {
       memcpy((splits[0]+seqNum-2), (buffer+strlen(seqStr) + 1), (rc-strlen(seqStr)));
     }
-    printf("Data Read: %d, Total Data: %d seq: %d\n", rc, readPtr, seqNum);
+    printf("Data Read: %d, Total Data: %ld seq: %ld Len: %ld\n", rc, readPtr, seqNum, splitLength);
   }
 
   close(socketFd);
-  printf("Split:<start>%s<end>\n", splits[0]);
+  printf("Got the entire file!! Yay!!!\n");
   exit(0);
 }
 
