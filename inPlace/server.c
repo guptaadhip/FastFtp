@@ -67,9 +67,8 @@ void startUdp(int chunk, int portNo, struct sockaddr_in addr) {
     memset(buf, '\0', 65535);
     memcpy(buf, seqNum, strlen(seqNum));
     memset((buf + strlen(seqNum)), ' ', 1);
-    memcpy((buf + strlen(seqNum) + 1), (splits[0] + sendPtr), (sendSize - strlen(seqNum) - 1));
-
-    if(sendto(udpSocket, buf, (strlen(seqNum) + sendSize), 0, 
+    memcpy((buf + strlen(seqNum) + 1), (splits[0] + sendPtr - strlen(seqNum)+ 1), (sendSize - strlen(seqNum)));
+    if(sendto(udpSocket, buf, (strlen(seqNum) + sendSize - 1), 0, 
              (struct sockaddr *)&cliAddr, cliLen) < 0) {
       fprintf(stderr, "Error: Sending Data");
       exit(1);

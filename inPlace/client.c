@@ -31,7 +31,6 @@ void startUdp() {
   serAddr.sin_family = AF_INET;
   serAddr.sin_addr.s_addr = INADDR_ANY;
   serAddr.sin_port = htons(UDP_PORT);
-  //printf("port number %d\n", ntohs(serAddr.sin_port));
   if (bind(socketFd, (struct sockaddr *) &serAddr, sizeof(serAddr)) < 0) {
     fprintf(stderr, "Error: Binding to Socket");
     exit(1);
@@ -52,10 +51,11 @@ void startUdp() {
     seqNum = atoi(seqStr);
     readPtr += rc;
     /* copy the data to the right place */
-    if (seqNum != 0) { 
-      seqNum--;
+    if (seqNum == 0) {
+      memcpy((splits[0]+seqNum-1), (buffer+strlen(seqStr)), (rc-strlen(seqStr)));
+    } else {
+      memcpy((splits[0]+seqNum-2), (buffer+strlen(seqStr) + 1), (rc-strlen(seqStr)));
     }
-    memcpy((splits[0] + seqNum - 1), (buffer + strlen(seqStr)), (rc - strlen(seqStr)));
     printf("Data Read: %d, Total Data: %d seq: %d\n", rc, readPtr, seqNum);
   }
 
