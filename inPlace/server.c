@@ -91,10 +91,6 @@ int main(int argc, char *argv[]) {
   struct sockaddr_in serv_addr, cli_addr;
   int n;
 	
-  /* timing */
-  time_t begin, end;
-  double time_spent;
-  time(&begin);
 
 	// Checking for valid inputs
   if (argc < 3) {
@@ -135,7 +131,12 @@ int main(int argc, char *argv[]) {
   if (newsockfd < 0) {
     fprintf(stderr, "ERROR on accept");
   }
-		
+
+  /* timing */
+  time_t begin, end;
+  double time_spent;
+  time(&begin);
+
   // reading Receiver's UDP port number
   bzero(recv_udp_port,sizeof(int) + 1);
 	n = read(newsockfd,recv_udp_port, sizeof(recv_udp_port));
