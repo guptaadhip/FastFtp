@@ -13,7 +13,7 @@
 #include <netdb.h>
 
 #define SPLITS 4
-#define DGRAM_SIZE 65500
+#define DGRAM_SIZE 512
 long int splitSize = 0;
 char f_name[50];
 char *splits[SPLITS];
@@ -40,6 +40,8 @@ void startUdp(int chunk, int portNo, struct sockaddr_in addr) {
   int sendPtr = 0;
   int udpSocket;
   int sendSize = DGRAM_SIZE;
+  char seqNum[10];
+  char buf[65535];
   socklen_t cliLen;
   struct sockaddr_in cliAddr;
   udpSocket = socket(AF_INET, SOCK_DGRAM, 0);
@@ -59,14 +61,21 @@ void startUdp(int chunk, int portNo, struct sockaddr_in addr) {
     } else {
       sendSize = DGRAM_SIZE;
     }
-    if(sendto(udpSocket, (splits[0] + sendPtr), sendSize, 0, 
+    /* get the sequence number at the start */
+    /* Format: <seqNum><space><data> */
+    sprintf(seqNum, "%d", sendPtr);
+    memset(buf, '\0', 65535);
+    memcpy(buf, seqNum, strlen(seqNum));
+    memset((buf + strlen(seqNum)), ' ', 1);
+    memcpy((buf + strlen(seqNum) + 1), (splits[0] + sendPtr), (sendSize - strlen(seqNum) - 1));
+
+    if(sendto(udpSocket, buf, (strlen(seqNum) + sendSize), 0, 
              (struct sockaddr *)&cliAddr, cliLen) < 0) {
       fprintf(stderr, "Error: Sending Data");
       exit(1);
     }
     sendPtr += DGRAM_SIZE;
   }
-
   close(udpSocket);
 }
 

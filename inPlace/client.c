@@ -8,13 +8,17 @@
 #include <netdb.h>
 
 #define UDP_PORT 7865
-#define DGRAM_SIZE 65500
+#define DGRAM_SIZE 512
 
 char *splits[4];
 long int splitLength = 0;
 
 void startUdp() {
+  int seqNum = 0;
   int readPtr = 0;
+  char buffer[65535];
+  char *temp;
+  char seqStr[10];
   struct sockaddr_in cliAddr, serAddr; 
   socklen_t cliAddrLen;
   int socketFd, rc;
@@ -35,18 +39,28 @@ void startUdp() {
   cliAddrLen = sizeof(cliAddr);
   bzero(splits[0], splitLength);
   while (readPtr < splitLength) {
-    rc = recvfrom(socketFd, (splits[0] + readPtr), DGRAM_SIZE, 0, 
+    bzero(buffer, sizeof(buffer));
+    rc = recvfrom(socketFd, buffer, DGRAM_SIZE, 0, 
           (struct sockaddr *) &cliAddr, &cliAddrLen);
     if (rc < 0) {
       fprintf(stderr, "Error: Receiving Data");
       exit(1);
     }
+    memset(seqStr, '\0', sizeof(seqStr));
+    temp = strchr(buffer, ' '); 
+    memcpy(seqStr, buffer, (temp - buffer));
+    seqNum = atoi(seqStr);
     readPtr += rc;
-    printf("Data Read: %d, Total Data: %d\n", rc, readPtr);
+    /* copy the data to the right place */
+    if (seqNum != 0) { 
+      seqNum--;
+    }
+    memcpy((splits[0] + seqNum - 1), (buffer + strlen(seqStr)), (rc - strlen(seqStr)));
+    printf("Data Read: %d, Total Data: %d seq: %d\n", rc, readPtr, seqNum);
   }
 
   close(socketFd);
-  printf("%s\n", splits[0]);
+  printf("Split:<start>%s<end>\n", splits[0]);
   exit(0);
 }
 
