@@ -11,6 +11,7 @@
 #include <time.h>
 #include <arpa/inet.h>
 #include <netdb.h>
+#include <sys/wait.h>
 
 #define SPLITS 4
 #define DGRAM_SIZE 65500
@@ -91,9 +92,9 @@ int main(int argc, char *argv[]) {
   int n;
 	
   /* timing */
-  clock_t begin, end;
+  time_t begin, end;
   double time_spent;
-  begin = clock();
+  time(&begin);
 
 	// Checking for valid inputs
   if (argc < 3) {
@@ -192,8 +193,8 @@ int main(int argc, char *argv[]) {
 	while (wait(&status) != -1);
   //startUdp(0, udpPort, cli_addr);
   /* timing */
-  end = clock();
-  time_spent = (double)(end - begin) / CLOCKS_PER_SEC;
+  time(&end);
+  time_spent = difftime(end, begin);
   printf("Time taken: %f\n", time_spent);
 
 	// closing sockets

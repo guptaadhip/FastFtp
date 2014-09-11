@@ -6,6 +6,7 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <netdb.h>
+#include <sys/wait.h>
 
 #define UDP_PORT 7865
 #define DGRAM_SIZE 65535
