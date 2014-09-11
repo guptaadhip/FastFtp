@@ -14,6 +14,13 @@
 #define DGRAM_SIZE 65535
 #define SPLITS 4
 
+/* UDP packet Bundle */
+struct udpPacketData{
+    int     sequenceNo;
+		size_t  bufferLength;
+    char    buffer[DGRAM_SIZE];
+};
+
 char *splits[SPLITS];	/* number of splits */
 long int splitLength = 0;
 int numSplits = 0;  		/* number of splits */
@@ -36,55 +43,66 @@ void *startUdp(void *tempX) {
   long int readPtr = 0;
   int yes = 1;
   int chunk = *((int *) tempX);
-  char buffer[65535];
+  char buffer[DGRAM_SIZE];
   char *temp;
-  char seqStr[10];
   struct sockaddr_in cliAddr, serAddr; 
   socklen_t cliAddrLen;
   int socketFd, rc;
-  socketFd = socket(AF_INET, SOCK_DGRAM, 0);
-  if (socketFd < 0) {
+	int receivePtr =0;
+	int lastSequence =0;
+	
+	struct udpPacketData udpPacket;
+  
+	socketFd = socket(AF_INET, SOCK_DGRAM, 0);
+  
+	if (socketFd < 0) {
     fprintf(stderr, "Error: Creating Socket");
     exit(1);
   }
-  if (setsockopt(socketFd, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(yes)) == -1) {
+  
+	if (setsockopt(socketFd, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(yes)) == -1) {
     perror("setsockopt");
     exit(1);
   }
+	
   bzero((char *) &serAddr, sizeof(serAddr));
   serAddr.sin_family = AF_INET;
   serAddr.sin_addr.s_addr = INADDR_ANY;
   serAddr.sin_port = htons(UDP_PORT + chunk);
-  if (bind(socketFd, (struct sockaddr *) &serAddr, sizeof(serAddr)) < 0) {
+  
+	if (bind(socketFd, (struct sockaddr *) &serAddr, sizeof(serAddr)) < 0) {
     fprintf(stderr, "Error: Binding to Socket %d", ntohs(serAddr.sin_port));
     exit(1);
   }
-  cliAddrLen = sizeof(cliAddr);
-  bzero(splits[chunk], splitLength);
-  /* hack in while to make it quit */
-  while ((seqNum + rc) < splitLength) {
-    bzero(buffer, sizeof(buffer));
-    rc = recvfrom(socketFd, buffer, DGRAM_SIZE, 0, 
-          (struct sockaddr *) &cliAddr, &cliAddrLen);
-    if (rc < 0) {
-      fprintf(stderr, "Error: Receiving Data");
-      exit(1);
-    }
-    memset(seqStr, '\0', sizeof(seqStr));
-    temp = strchr(buffer, ' '); 
-    memcpy(seqStr, buffer, (temp - buffer));
-    seqNum = atoi(seqStr);
-    readPtr += rc;
-    readPtr -= strlen(seqStr);
-    /* copy the data to the right place */
-    if (seqNum == 0) {
-      memcpy((splits[chunk]+seqNum-1), (buffer+strlen(seqStr)), (rc-strlen(seqStr)));
-    } else {
-      memcpy((splits[chunk]+seqNum-2), (buffer+strlen(seqStr) + 1), (rc-strlen(seqStr)));
-    }
-    printf("Data Read: %d, Total Data: %ld seq: %ld Len: %ld\n", rc, readPtr, seqNum, splitLength);
-  }
-
+  
+	cliAddrLen = sizeof(cliAddr);
+  
+	bzero(splits[chunk], splitLength);
+  
+	/* hack in while to make it quit */
+	
+	while(receivePtr <= splitLength){
+		rc = recvfrom(socketFd, &udpPacket, sizeof(udpPacket), 0, 
+				(struct sockaddr *) &cliAddr, &cliAddrLen);
+		if (rc < 0){
+			fprintf(stderr, "Error: Receiving Data");
+			exit(1);
+		}
+		
+		if(udpPacket.sequenceNo != (lastSequence+1)){ 
+			// Change this code to handle re-transmission
+			fprintf(stderr, "Error: Packet unordered or missing\n");
+			continue;
+		}	
+		lastSequence=udpPacket.sequenceNo;
+		
+		receivePtr+=udpPacket.bufferLength;
+		//Append the incoming packet in order
+		memcpy((splits[chunk]+receivePtr), udpPacket.buffer, udpPacket.bufferLength);
+		
+		printf("Data Read: %d, Total Data: %ld seq: %ld Len: %ld\n", rc, receivePtr, udpPacket.sequenceNo, udpPacket.bufferLength);
+	}
+	
   close(socketFd);
   return 0;
   //printf("Got the entire file!! Yay!!!\n");

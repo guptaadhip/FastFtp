@@ -19,6 +19,13 @@
 #define SPLITS 4
 #define DGRAM_SIZE 65500
 
+/* UDP packet Bundle */
+struct udpPacketData{
+    int     sequenceNo;
+		size_t  bufferLength;
+    char    buffer[DGRAM_SIZE];
+};
+
 long int splitSize = 0;
 char f_name[50];
 char *splits[SPLITS];
@@ -49,42 +56,48 @@ void *startUdp(void *temp) {
   int chunk = *((int *) temp);
   int udpSocket;
   int sendSize = DGRAM_SIZE;
-  char seqNum[10];
-  char buf[65535];
+  char buf[DGRAM_SIZE];
   socklen_t cliLen;
   struct sockaddr_in cliAddr;
-  bcopy((char *) &addr, (char *) &cliAddr, sizeof(addr));
+  
+	struct udpPacketData udpPacket;
+	
+	bcopy((char *) &addr, (char *) &cliAddr, sizeof(addr));
   udpSocket = socket(AF_INET, SOCK_DGRAM, 0);
-  if (udpSocket < 0) {
+  
+	if (udpSocket < 0) {
     fprintf(stderr, "Error: Creating UDP Socket");
     exit(1);
   }
+	
   bzero((char *) &cliAddr, sizeof(cliAddr));
   cliAddr.sin_family = AF_INET;
   inet_aton(inet_ntoa(addr.sin_addr), &cliAddr.sin_addr);
   cliAddr.sin_port = htons(udpPort+chunk);
   cliLen = sizeof(cliAddr);
-  while (sendPtr <= splitSize) {
-    /* send only the amount left */
+	
+	udpPacket.sequenceNo = 0;
+	
+	while(sendPtr <= splitSize){
+		/* send only the amount left */
     if ((splitSize - sendPtr) < DGRAM_SIZE) {
       sendSize = splitSize - sendPtr;
     } else {
       sendSize = DGRAM_SIZE;
     }
-    /* get the sequence number at the start */
-    /* Format: <seqNum><space><data> */
-    sprintf(seqNum, "%d", sendPtr);
-    memset(buf, '\0', 65535);
-    memcpy(buf, seqNum, strlen(seqNum));
-    memset((buf + strlen(seqNum)), ' ', 1);
-    memcpy((buf + strlen(seqNum) + 1), (splits[chunk] + sendPtr - strlen(seqNum)+ 1), (sendSize - strlen(seqNum)));
-    if(sendto(udpSocket, buf, (strlen(seqNum) + sendSize - 1), 0, 
+		
+		memcpy(udpPacket.buffer, splits[chunk],sendSize);
+    udpPacket.bufferLength = sizeof(splits[chunk]);
+    udpPacket.sequenceNo++;
+		
+		if(sendto(udpSocket, &udpPacket, sizeof(udpPacket), 0, 
              (struct sockaddr *)&cliAddr, cliLen) < 0) {
       fprintf(stderr, "Error: Sending Data");
       exit(1);
     }
-    sendPtr += DGRAM_SIZE;
-  }
+		
+		sendPtr += sendSize;
+	}
 	return 0;
 }
 
