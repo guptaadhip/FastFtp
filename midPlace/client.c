@@ -11,7 +11,7 @@
 #define DGRAM_SIZE 65500
 #define SPLITS 4
 
-char *splits[SPLITS];
+char *splits[SPLITS];	/* number of splits */
 long int splitLength = 0;
 int numSplits = 0;  		/* number of splits */
 

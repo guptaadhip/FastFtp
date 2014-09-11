@@ -27,7 +27,7 @@ void bufferFile() {
   stream = fopen(f_name, "rb");
   fseek(stream, 0L, SEEK_END);
   fileSize = ftell(stream);
-	printf("fileSize-%ld\n",fileSize);
+	//printf("fileSize-%ld\n",fileSize);
   fseek(stream, 0L, SEEK_SET);
   splitSize = fileSize / SPLITS;
   for(i = 0; i < SPLITS; i++) {
