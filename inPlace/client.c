@@ -61,13 +61,12 @@ void startUdp(int pcounter) {
     } else {
       memcpy((splits[pcounter]+seqNum-2), (buffer+strlen(seqStr) + 1), (rc-strlen(seqStr)));
     }
-    printf("Data Read: %d, Total Data: %ld seq: %ld Len: %ld\n", rc, readPtr, seqNum, splitLength);
+    //printf("Data Read: %d, Total Data: %ld seq: %ld Len: %ld\n", rc, readPtr, seqNum, splitLength);
   }
 
   close(socketFd);
-	printf("%d\n", pcounter);
-  printf("Got the entire file!! Yay!!!\n");
-  exit(0);
+	//printf("%d\n", pcounter);
+  //printf("Got the entire file!! Yay!!!\n");
 }
 
 int main(int argc, char *argv[]) {
@@ -145,9 +144,15 @@ int main(int argc, char *argv[]) {
 		childId = fork();
 		if(childId == 0)
 		{
-		  fprintf(stdout, "Child Process-%d started \n",pcounter+1);
+			struct timeval t0,t1;			
+			gettimeofday(&t0, 0);
+		  //fprintf(stdout, "Child Process-%d started \n",pcounter+1);
 			startUdp(pcounter);
-			fprintf(stdout, "Child Process-%d exiting \n",pcounter+1);
+			//fprintf(stdout, "Child Process-%d exiting \n",pcounter+1);
+			gettimeofday(&t1, 0); 
+			long elapsed = (t1.tv_sec-t0.tv_sec)*1000000 + t1.tv_usec-t0.tv_usec;
+			fprintf(stdout,"Time taken-%d: %ld\n", pcounter+1, elapsed);
+			exit(0);
 		}
 		else if(childId < 0){
 			fprintf(stderr, "ERROR: Child Process Creation Failed");

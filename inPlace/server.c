@@ -13,6 +13,8 @@
 #include <netdb.h>
 #include <sys/wait.h>
 
+#include <sys/time.h>
+
 #define SPLITS 4
 #define DGRAM_SIZE 65500
 long int splitSize = 0;
@@ -78,8 +80,7 @@ void startUdp(int chunk, struct sockaddr_in addr) {
     }
     sendPtr += DGRAM_SIZE;
   }
-  close(udpSocket);
-	exit(0);
+	//exit(0);
 }
 
 
@@ -91,7 +92,6 @@ int main(int argc, char *argv[]) {
   struct sockaddr_in serv_addr, cli_addr;
   int n;
 	
-
 	// Checking for valid inputs
   if (argc < 3) {
     fprintf(stderr, "ERROR: no port provided");
@@ -132,10 +132,8 @@ int main(int argc, char *argv[]) {
     fprintf(stderr, "ERROR on accept");
   }
 
-  /* timing */
-  time_t begin, end;
-  double time_spent;
-  time(&begin);
+	struct timeval t0,t1;			
+	gettimeofday(&t0, 0);
 
   // reading Receiver's UDP port number
   bzero(recv_udp_port,sizeof(int) + 1);
@@ -171,12 +169,28 @@ int main(int argc, char *argv[]) {
 		childId = fork();
 		if(childId == 0)
 		{
-		  fprintf(stdout, "Child Process-%d started \n",pcounter+1);
+			/* timing */
+			/*clock_t begin, end;
+			//time_t begin, end;
+			double time_spent;
+			//time(&begin);
+			begin = clock();*/
+ 
+			 
+		  //fprintf(stdout, "Child Process-%d started \n",pcounter+1);
 			/* assuming 1 process takes care of sending one split(chunk) 
 			* So chunk number argument is same as process counter arg 
 			*/
 			startUdp(pcounter,cli_addr);
-			fprintf(stdout, "Child Process-%d exiting \n",pcounter+1);
+			/*time(&end);
+			time_spent = difftime(end, begin);
+			fprintf(stdout,"Time taken-%d: %f\n", pcounter+1,time_spent);
+			fprintf(stdout, "Child Process-%d exiting \n",pcounter+1);*/
+			//sleep(4);
+			/*end = clock();
+			time_spent = (double)(end - begin) / CLOCKS_PER_SEC;
+			fprintf(stdout,"Time taken-%d: %f\n", pcounter+1,time_spent);*/
+			exit(0);
 		}
 		else if(childId < 0){
 			fprintf(stderr, "ERROR: Child Process Creation Failed");
@@ -194,9 +208,10 @@ int main(int argc, char *argv[]) {
 	while (wait(&status) != -1);
   //startUdp(0, udpPort, cli_addr);
   /* timing */
-  time(&end);
-  time_spent = difftime(end, begin);
-  printf("Time taken: %f\n", time_spent);
+  gettimeofday(&t1, 0); 
+	long elapsed = (t1.tv_sec-t0.tv_sec)*1000000 + t1.tv_usec-t0.tv_usec;
+	fprintf(stdout,"Time taken-%d: %ld\n", pcounter+1, elapsed);
+			
 
 	// closing sockets
   close(newsockfd);
