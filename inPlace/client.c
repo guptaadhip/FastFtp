@@ -8,6 +8,7 @@
 #include <netdb.h>
 #include <sys/wait.h>
 #include <sys/time.h>
+#include <pthread.h>
 
 #define UDP_PORT 7865
 #define DGRAM_SIZE 65535
@@ -18,7 +19,7 @@ long int splitLength = 0;
 int numSplits = 0;  		/* number of splits */
 
 /* Code for File writing*/
-void writeToFile() {
+/*void writeToFile() {
     long int fileSize = 0;
     int i = 0;
     size_t size = 0;
@@ -28,11 +29,13 @@ void writeToFile() {
         size=fwrite(splits[i],1,splitLength,op);
     }
     fclose(op);
-}
+}*/
 
-void startUdp(int pcounter) {
+void *startUdp(void *tempX) {
   long int seqNum = 0;
   long int readPtr = 0;
+  int yes = 1;
+  int chunk = *((int *) tempX);
   char buffer[65535];
   char *temp;
   char seqStr[10];
@@ -44,16 +47,20 @@ void startUdp(int pcounter) {
     fprintf(stderr, "Error: Creating Socket");
     exit(1);
   }
+  if (setsockopt(socketFd, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(yes)) == -1) {
+    perror("setsockopt");
+    exit(1);
+  }
   bzero((char *) &serAddr, sizeof(serAddr));
   serAddr.sin_family = AF_INET;
   serAddr.sin_addr.s_addr = INADDR_ANY;
-  serAddr.sin_port = htons(UDP_PORT+pcounter);
+  serAddr.sin_port = htons(UDP_PORT + chunk);
   if (bind(socketFd, (struct sockaddr *) &serAddr, sizeof(serAddr)) < 0) {
-    fprintf(stderr, "Error: Binding to Socket");
+    fprintf(stderr, "Error: Binding to Socket %d", ntohs(serAddr.sin_port));
     exit(1);
   }
   cliAddrLen = sizeof(cliAddr);
-  bzero(splits[pcounter], splitLength);
+  bzero(splits[chunk], splitLength);
   /* hack in while to make it quit */
   while ((seqNum + rc) < splitLength) {
     bzero(buffer, sizeof(buffer));
@@ -71,15 +78,15 @@ void startUdp(int pcounter) {
     readPtr -= strlen(seqStr);
     /* copy the data to the right place */
     if (seqNum == 0) {
-      memcpy((splits[pcounter]+seqNum-1), (buffer+strlen(seqStr)), (rc-strlen(seqStr)));
+      memcpy((splits[chunk]+seqNum-1), (buffer+strlen(seqStr)), (rc-strlen(seqStr)));
     } else {
-      memcpy((splits[pcounter]+seqNum-2), (buffer+strlen(seqStr) + 1), (rc-strlen(seqStr)));
+      memcpy((splits[chunk]+seqNum-2), (buffer+strlen(seqStr) + 1), (rc-strlen(seqStr)));
     }
-    //printf("Data Read: %d, Total Data: %ld seq: %ld Len: %ld\n", rc, readPtr, seqNum, splitLength);
+    printf("Data Read: %d, Total Data: %ld seq: %ld Len: %ld\n", rc, readPtr, seqNum, splitLength);
   }
 
   close(socketFd);
-	//printf("%d\n", pcounter);
+  return 0;
   //printf("Got the entire file!! Yay!!!\n");
 }
 
@@ -89,7 +96,9 @@ int main(int argc, char *argv[]) {
   struct hostent *server;
   char buffer[200];
   char udp_port[6];
-	int icounter = 0 ;
+	int icounter = 0;
+  int i;
+  pthread_t thread[SPLITS];
 	
   if (argc < 3) {
     fprintf(stderr,"usage %s hostname port\n", argv[0]);
@@ -144,53 +153,17 @@ int main(int argc, char *argv[]) {
 	for(icounter=0; icounter < SPLITS;icounter++){
 		splits[icounter] = malloc(splitLength+1);
 	}
-  /* creating the udp */
-  /* this needs to be forked */
 
-	/* Inserting code for forking processes */
-	int pcounter = 0; /* Counter to spawn new process */
-	pid_t childId = 0;
-	int status = -1;
-	
-	/* Number of processes to be spawned = Number of splits */
-	while(pcounter < numSplits)
-	{
-		childId = fork();
-		if(childId == 0)
-		{
-			struct timeval t0,t1;			
-			gettimeofday(&t0, 0);
-		  //fprintf(stdout, "Child Process-%d started \n",pcounter+1);
-			startUdp(pcounter);
-			//fprintf(stdout, "Child Process-%d exiting \n",pcounter+1);
-			gettimeofday(&t1, 0); 
-			long elapsed = (t1.tv_sec-t0.tv_sec)*1000000 + t1.tv_usec-t0.tv_usec;
-			fprintf(stdout,"Time taken-%d: %ld\n", pcounter+1, elapsed);
-			exit(0);
-		}
-		else if(childId < 0){
-			fprintf(stderr, "ERROR: Child Process Creation Failed");
-		}
-		else
-		{
-			fprintf(stdout, "Parent Process continuing \n");
-			pcounter++;
-			/* check where to handle UDP port number increase. Better handle it here and 
-			pass the new UDP port number to child process (similar to server part)
-			*/
-			//udpPort++;    
-		}
-	}
-	
-	/* Parent processes waits for child processes to terminate 
-	Signal Handling left !! 
-	*/
-	while (wait(&status) != -1)
-    ;
-  //startUdp();
-    
+  for (i = 0; i < SPLITS; i++) { 
+    pthread_create(&thread[i], NULL, startUdp, &i);
+  }
+
+  for (i = 0; i < SPLITS; i++) { 
+    pthread_join(thread[i], NULL);
+  }
+
   /* writing the data received to a file */
-  writeToFile();
+  //writeToFile();
   close(sockfd);
   return 0;
 }
