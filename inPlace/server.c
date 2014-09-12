@@ -17,13 +17,22 @@
 #include <sys/time.h>
 
 #define SPLITS 4
-#define DGRAM_SIZE 65500
+#define DGRAM_SIZE 65000
+
+/* UDP packet Bundle */
+struct udpPacketData{
+    int     sequenceNo;
+		size_t  bufferLength;
+    char    buffer[DGRAM_SIZE];
+};
 
 long int splitSize = 0;
 char f_name[50];
 char *splits[SPLITS];
 int udpPort;
 struct sockaddr_in addr;
+int icounter = 0;
+int threadCounter[SPLITS];
 
 void bufferFile() {
   long int fileSize = 0;
@@ -46,45 +55,50 @@ void bufferFile() {
 
 void *startUdp(void *temp) {
   int sendPtr = 0;
-  int chunk = *((int *) temp);
+  int chunk = *(int *) temp;
   int udpSocket;
   int sendSize = DGRAM_SIZE;
-  char seqNum[10];
-  char buf[65535];
   socklen_t cliLen;
   struct sockaddr_in cliAddr;
-  bcopy((char *) &addr, (char *) &cliAddr, sizeof(addr));
+  
+	struct udpPacketData udpPacket;
+	
+	bcopy((char *) &addr, (char *) &cliAddr, sizeof(addr));
   udpSocket = socket(AF_INET, SOCK_DGRAM, 0);
-  if (udpSocket < 0) {
+  
+	if (udpSocket < 0) {
     fprintf(stderr, "Error: Creating UDP Socket");
     exit(1);
   }
+	fprintf(stderr, "Binded: Socket-%d\n",chunk+1);
   bzero((char *) &cliAddr, sizeof(cliAddr));
   cliAddr.sin_family = AF_INET;
   inet_aton(inet_ntoa(addr.sin_addr), &cliAddr.sin_addr);
   cliAddr.sin_port = htons(udpPort+chunk);
   cliLen = sizeof(cliAddr);
-  while (sendPtr <= splitSize) {
-    /* send only the amount left */
-    if ((splitSize - sendPtr) < DGRAM_SIZE) {
-      sendSize = splitSize - sendPtr;
-    } else {
+	
+	udpPacket.sequenceNo = 0;
+	
+	while(sendPtr <= splitSize){
+		/* send only the amount left */
+   // if ((splitSize - sendPtr) < DGRAM_SIZE) {
+			//sendSize = splitSize - sendPtr;
+    //} else {
       sendSize = DGRAM_SIZE;
-    }
-    /* get the sequence number at the start */
-    /* Format: <seqNum><space><data> */
-    sprintf(seqNum, "%d", sendPtr);
-    memset(buf, '\0', 65535);
-    memcpy(buf, seqNum, strlen(seqNum));
-    memset((buf + strlen(seqNum)), ' ', 1);
-    memcpy((buf + strlen(seqNum) + 1), (splits[chunk] + sendPtr - strlen(seqNum)+ 1), (sendSize - strlen(seqNum)));
-    if(sendto(udpSocket, buf, (strlen(seqNum) + sendSize - 1), 0, 
+    //}
+		
+		memcpy(udpPacket.buffer, splits[chunk],sendSize);
+    udpPacket.bufferLength = sendSize;
+    udpPacket.sequenceNo++;
+		
+		if(sendto(udpSocket, &udpPacket, sizeof(udpPacket), 0, 
              (struct sockaddr *)&cliAddr, cliLen) < 0) {
-      fprintf(stderr, "Error: Sending Data");
+      fprintf(stderr, "Error: Sending Data\n");
       exit(1);
     }
-    sendPtr += DGRAM_SIZE;
-  }
+		
+		sendPtr += sendSize;
+	}
 	return 0;
 }
 
@@ -161,15 +175,16 @@ int main(int argc, char *argv[]) {
   /* lets send the first chunk */
   /* TBD: Handle the timing in such a way that the 
    * sleep is not required */
-  usleep(500000);
+  usleep(1000000);
 	
   /* threading to handle things */
-  for (i = 0; i < SPLITS; i++) {
-    pthread_create(&thread[i], NULL, startUdp, &i);
+  for (icounter = 0; icounter < SPLITS; icounter++) {
+		threadCounter[icounter]=icounter;
+    pthread_create(&thread[icounter], NULL, startUdp, &threadCounter[icounter]);
 	}
 
-  for (i = 0; i < SPLITS; i++) {
-    pthread_join(thread[i], NULL);
+  for (icounter = 0; icounter < SPLITS; icounter++) {
+    pthread_join(thread[icounter], NULL);
   }
 
   /* timing */
