@@ -49,28 +49,28 @@ void receiveUdp(int idx) {
   long int expectedSeqNum = 0;
 
   /* lets do some time out */
-  struct timeval tv;
+  /*struct timeval tv;
   tv.tv_sec = 0;
-  tv.tv_usec = 100000;
+  tv.tv_usec = 100000;*/
   
   udpSocket = socket(AF_INET, SOCK_DGRAM, 0);
   if (udpSocket < 0) {
-    fprintf(stderr, "Error: Creating Socket\n");
+    cout << "Error: Creating Socket" << endl;
     exit(1);
   }
   
   if (setsockopt(udpSocket, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(yes)) == -1) {
-    fprintf(stderr, "Error: Setting Socket Options\n");
+    cout << "Error: Setting Socket Options" << endl;
     exit(1);
   }
 
   /*if (setsockopt(udpSocket, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv)) < 0) {
-    fprintf(stderr, "Error: Setting Socket Options\n");
+    cout << "Error: Setting Socket Options\n");
     exit(1);
   }
   long int n = 1024 * 9000; //experiment with it
   if (setsockopt(udpSocket, SOL_SOCKET, SO_RCVBUFFORCE, &n, sizeof(n)) == -1) {
-    fprintf(stderr, "Error: Setting Socket Options\n");
+    cout << "Error: Setting Socket Options\n");
     exit(1);
   }*/
 
@@ -78,10 +78,9 @@ void receiveUdp(int idx) {
   serverAddr.sin_addr.s_addr = INADDR_ANY;
   serverAddr.sin_port = htons(UDP_PORT_NO + idx);
   //fprintf(stdout, "Listening on Port: %d\n", ntohs(serverAddr.sin_port));
-  //fflush(stdout);
   
   if (bind(udpSocket, (struct sockaddr *) &serverAddr, sizeof(serverAddr)) < 0) {
-    fprintf(stderr, "Error: Binding to Socket %d\n", ntohs(serverAddr.sin_port));
+    cout << "Error: Binding to Socket " <<  ntohs(serverAddr.sin_port) << endl;
     exit(1);
   }
 	clientAddrLen = sizeof(clientAddr);
@@ -92,8 +91,7 @@ void receiveUdp(int idx) {
     rc = recvfrom(udpSocket, buffer, sizeof(buffer), 0,
                   (struct sockaddr *) &clientAddr, &clientAddrLen);
     if (rc < 0) {
-      fprintf(stderr, "Error: Receiving Data\n");
-      fflush(stderr);
+      cout << "Error: Receiving Data" << endl;
       exit(1);
     }
     totalPackets[idx]++;
@@ -133,7 +131,7 @@ void *udp(void *argc) {
   /* lets do the needful now */
   gettimeofday(&t1, 0);
   long elapsed = (t1.tv_sec-t0.tv_sec)*1000000 + t1.tv_usec-t0.tv_usec;
-  printf("Time taken: %ld microseconds\n", elapsed);
+  cout << "Time taken: " << elapsed << " microseconds" << endl;
   //printf("Server Idx: %d\n", idx);
   /* wait for the tcp command to be received */
   return 0;
@@ -152,7 +150,7 @@ int main(int argc, char *argv[]) {
 	// Creating the Internet domain socket
   waitSocket = socket(AF_INET, SOCK_STREAM, 0);
   if (waitSocket < 0) {
-    fprintf(stderr, "ERROR opening socket\n");
+    cout << "ERROR opening socket" << endl;
     exit(1);
   }
   
@@ -161,7 +159,7 @@ int main(int argc, char *argv[]) {
   tcpAddr.sin_addr.s_addr = INADDR_ANY;
   tcpAddr.sin_port = htons(TCP_PORT_NO);
   if (bind(waitSocket, (struct sockaddr *) &tcpAddr, sizeof(tcpAddr)) < 0) {
-    fprintf(stderr, "ERROR on binding\n");
+    cout << "ERROR on binding" << endl;
   }
   
   listen(waitSocket,1);
@@ -175,12 +173,12 @@ int main(int argc, char *argv[]) {
 	// accept connection and open TCP socket
   tcpSocket = accept(waitSocket, (struct sockaddr *) &tcpClientAddr, &clientLen);
   if (tcpSocket < 0) {
-    fprintf(stderr, "ERROR on accept\n");
+    cout << "ERROR on accept" << endl;
   }
 
   rc = recv(tcpSocket, &size, sizeof(size), 0);
   if (rc < 0) {
-    fprintf(stderr, "ERROR reading from socket\n");
+    cout << "ERROR reading from socket" << endl;
     exit(1);
   }
   file = (char *) malloc(size + 1);
@@ -195,8 +193,8 @@ int main(int argc, char *argv[]) {
   for (i = 0; i < SPLITS; i++) {
     tot += totalPackets[i];
   }
-  printf("Packets Received:%ld\n", tot); 
-  printf("Expected Packets:%ld\n", numPackets * SPLITS); 
-  printf("Missed Packets:%d\n", missedDataPtr); 
+  cout << "Packets Received: " << tot << endl; 
+  cout << "Expected Packets: " << (numPackets * SPLITS) << endl; 
+  cout << "Missed Packets: " << missedDataPtr << endl; 
   return 0;
 }

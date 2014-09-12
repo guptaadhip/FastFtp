@@ -20,7 +20,7 @@
 #define SPLITS 4
 #define DGRAM_SIZE 1450
 
-#define PATH "data.bin"
+#define PATH "/tmp/data.bin"
 
 int threadCounter[SPLITS];
 long int fileSize = 0;

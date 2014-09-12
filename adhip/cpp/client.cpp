@@ -24,7 +24,7 @@
 
 using namespace std;
 
-#define PATH "data.bin"
+#define PATH "/tmp/data.bin"
 
 int threadCounter[SPLITS];
 long int fileSize = 0;
@@ -48,7 +48,7 @@ void sendUdp(int idx) {
   
   udpSocket = socket(AF_INET, SOCK_DGRAM, 0);
 	if (udpSocket < 0) {
-    fprintf(stderr, "Error: Creating Socket\n");
+    cout << "Error: Creating Socket" << endl;
     exit(1);
   }
 
@@ -72,7 +72,7 @@ void sendUdp(int idx) {
     rc = sendto(udpSocket, &msg, sizeof(msg), 0,
               (struct sockaddr *)&udpServerAddress, serverAddrLen);
     if (rc < 0) {
-      fprintf(stderr, "Error: Sending Data\n");
+      cout << "Error: Sending Data" << endl;
       exit(1);
     }
     sendPtr += sendSize;
@@ -95,12 +95,12 @@ void fileBuffer() {
     exit(0);
   }
   if (fstat (fd, &stats) < 0) {
-    printf("Error in getting file size\n");
+    cout << "Error in getting file size" << endl;
     exit(0);
   }
   fileSize = stats.st_size;
   if ((file = (char *) mmap(0, fileSize, PROT_READ, MAP_PRIVATE, fd, 0)) == (void*) -1) {
-    printf("Error caching the file\n");
+    cout << "Error caching the file" << endl;
     exit(0);
   }
   splitSize = (fileSize / SPLITS) + 1;
@@ -119,13 +119,13 @@ int main(int argc, char *argv[]) {
   /* get server details */
   serverInfo = gethostbyname(argv[1]);
   if (serverInfo == NULL) {
-    printf("Failed to get the server for the hostname\n");
+    cout << "Failed to get the server for the hostname" << endl;
   }
 
   /* Creating the Internet domain socket */
   tcpSocket = socket(AF_INET, SOCK_STREAM, 0);
   if (tcpSocket < 0) {
-    printf("Socket creation failed\n");
+    cout << "Socket creation failed" << endl;
   }
 
   /* Set server address values */
@@ -135,12 +135,12 @@ int main(int argc, char *argv[]) {
   tcpServerAddr.sin_port = htons(TCP_PORT_NO);
   if (connect(tcpSocket, (struct sockaddr *) &tcpServerAddr,
                                               sizeof(tcpServerAddr)) < 0) {
-    printf("Conneting to server failed\n");
+    cout << "Conneting to server failed" << endl;
   }
   
   rc = send(tcpSocket, &fileSize, sizeof(fileSize), 0);
   if (rc < 0) {
-    fprintf(stderr, "ERROR writing to socket\n");
+    cout << "ERROR writing to socket" << endl;
     exit(1);
   }
   
