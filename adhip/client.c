@@ -32,7 +32,6 @@ uint32_t splitSize = 0;
 /* Send file as UDP */
 void sendUdp(int idx) {
   char msg[DGRAM_SIZE + 8];
-  usleep(50000);
   struct sockaddr_in udpServerAddress;
   int udpSocket;
   socklen_t serverAddrLen;

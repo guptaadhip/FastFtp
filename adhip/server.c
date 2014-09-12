@@ -5,6 +5,7 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
+#include <math.h>
 #include <errno.h>
 #include <arpa/inet.h>
 #include <netdb.h>
@@ -21,6 +22,16 @@ long int splitSize = 0;
 int threadCounter[SPLITS];
 char *file;
 
+/* NACK */
+struct missedDataNack {
+  int idx;
+  long int missedSeq;
+} missedData[65535];
+
+int missedDataPtr = 0;
+long int totalPackets[SPLITS];
+long int numPackets = 0;
+
 /* Receive UDP */
 void receiveUdp(int idx) {
   long int seqNum = 0;
@@ -35,6 +46,10 @@ void receiveUdp(int idx) {
   /* NACK */
   long int expectedSeqNum = 0;
 
+  /* lets do some time out */
+  struct timeval tv;
+  tv.tv_sec = 0;
+  tv.tv_usec = 100000;
   
   udpSocket = socket(AF_INET, SOCK_DGRAM, 0);
   if (udpSocket < 0) {
@@ -47,7 +62,11 @@ void receiveUdp(int idx) {
     exit(1);
   }
 
-  /*long int n = 1024 * 9000; //experiment with it
+  /*if (setsockopt(udpSocket, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv)) < 0) {
+    fprintf(stderr, "Error: Setting Socket Options\n");
+    exit(1);
+  }
+  long int n = 1024 * 9000; //experiment with it
   if (setsockopt(udpSocket, SOL_SOCKET, SO_RCVBUFFORCE, &n, sizeof(n)) == -1) {
     fprintf(stderr, "Error: Setting Socket Options\n");
     exit(1);
@@ -56,8 +75,8 @@ void receiveUdp(int idx) {
   serverAddr.sin_family = AF_INET;
   serverAddr.sin_addr.s_addr = INADDR_ANY;
   serverAddr.sin_port = htons(UDP_PORT_NO + idx);
-  fprintf(stdout, "Listening on Port: %d\n", ntohs(serverAddr.sin_port));
-  fflush(stdout);
+  //fprintf(stdout, "Listening on Port: %d\n", ntohs(serverAddr.sin_port));
+  //fflush(stdout);
   
   if (bind(udpSocket, (struct sockaddr *) &serverAddr, sizeof(serverAddr)) < 0) {
     fprintf(stderr, "Error: Binding to Socket %d\n", ntohs(serverAddr.sin_port));
@@ -66,14 +85,16 @@ void receiveUdp(int idx) {
 	clientAddrLen = sizeof(clientAddr);
   
 
-  while (expectedSeqNum < splitSize) {
+  while (totalPackets[idx] != numPackets) {
     bzero((char *) buffer, sizeof(buffer));
     rc = recvfrom(udpSocket, buffer, sizeof(buffer), 0,
                   (struct sockaddr *) &clientAddr, &clientAddrLen);
     if (rc < 0) {
       fprintf(stderr, "Error: Receiving Data\n");
+      fflush(stderr);
       exit(1);
     }
+    totalPackets[idx]++;
     memcpy(&seqNum, buffer, sizeof(long int));
     seqNum = ntohl(seqNum);
     memcpy(&recvDataSize, (buffer + 4), sizeof(long int));
@@ -81,8 +102,10 @@ void receiveUdp(int idx) {
     recvSize += recvDataSize;
     //printf("Got seqNum: %ld, size: %d\n", seqNum, rc);
     if (expectedSeqNum < seqNum) {
-      //printf("got: %ld expect seq: %ld\n", seqNum, expectedSeqNum);
       while (expectedSeqNum != seqNum) {
+        /* need to get locking */
+        missedData[missedDataPtr++].idx = idx;
+        missedData[missedDataPtr++].missedSeq = expectedSeqNum;
         expectedSeqNum += recvDataSize;
       }
     } else if (expectedSeqNum > seqNum) {
@@ -100,7 +123,8 @@ void *udp(void *argc) {
   int idx = *((int *) argc);
   while (fileSize == 0);
   /* sanity to do the file size Split */
-  splitSize = fileSize / SPLITS + 1;
+  splitSize = ceil((double)(fileSize / SPLITS));
+  numPackets = ceil((double)(splitSize / DGRAM_SIZE));
   struct timeval t0,t1;
   gettimeofday(&t0, 0);
   receiveUdp(idx);
@@ -114,6 +138,7 @@ void *udp(void *argc) {
 }
 
 int main(int argc, char *argv[]) {
+  long int tot = 0;
   int rc, i;
   int waitSocket, tcpSocket;
   long int size;
@@ -165,6 +190,11 @@ int main(int argc, char *argv[]) {
   for(i = 0; i < SPLITS; i++) {
     pthread_join(thread[i], NULL);
   }
-  //printf("\nGot Data:%s\n", file); 
+  for (i = 0; i < SPLITS; i++) {
+    tot += totalPackets[i];
+  }
+  printf("Packets Received:%ld\n", tot); 
+  printf("Expected Packets:%ld\n", numPackets * SPLITS); 
+  printf("Missed Packets:%d\n", missedDataPtr); 
   return 0;
 }
