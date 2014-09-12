@@ -17,7 +17,7 @@
 #include <sys/time.h>
 
 #define SPLITS 4
-#define DGRAM_SIZE 65500
+#define DGRAM_SIZE 65000
 
 /* UDP packet Bundle */
 struct udpPacketData{
@@ -31,6 +31,8 @@ char f_name[50];
 char *splits[SPLITS];
 int udpPort;
 struct sockaddr_in addr;
+int icounter = 0;
+int threadCounter[SPLITS];
 
 void bufferFile() {
   long int fileSize = 0;
@@ -53,10 +55,9 @@ void bufferFile() {
 
 void *startUdp(void *temp) {
   int sendPtr = 0;
-  int chunk = *((int *) temp);
+  int chunk = *(int *) temp;
   int udpSocket;
   int sendSize = DGRAM_SIZE;
-  char buf[DGRAM_SIZE];
   socklen_t cliLen;
   struct sockaddr_in cliAddr;
   
@@ -69,7 +70,7 @@ void *startUdp(void *temp) {
     fprintf(stderr, "Error: Creating UDP Socket");
     exit(1);
   }
-	
+	fprintf(stderr, "Binded: Socket-%d\n",chunk+1);
   bzero((char *) &cliAddr, sizeof(cliAddr));
   cliAddr.sin_family = AF_INET;
   inet_aton(inet_ntoa(addr.sin_addr), &cliAddr.sin_addr);
@@ -80,19 +81,19 @@ void *startUdp(void *temp) {
 	
 	while(sendPtr <= splitSize){
 		/* send only the amount left */
-    if ((splitSize - sendPtr) < DGRAM_SIZE) {
-      sendSize = splitSize - sendPtr;
-    } else {
+   // if ((splitSize - sendPtr) < DGRAM_SIZE) {
+			//sendSize = splitSize - sendPtr;
+    //} else {
       sendSize = DGRAM_SIZE;
-    }
+    //}
 		
 		memcpy(udpPacket.buffer, splits[chunk],sendSize);
-    udpPacket.bufferLength = sizeof(splits[chunk]);
+    udpPacket.bufferLength = sendSize;
     udpPacket.sequenceNo++;
 		
 		if(sendto(udpSocket, &udpPacket, sizeof(udpPacket), 0, 
              (struct sockaddr *)&cliAddr, cliLen) < 0) {
-      fprintf(stderr, "Error: Sending Data");
+      fprintf(stderr, "Error: Sending Data\n");
       exit(1);
     }
 		
@@ -174,15 +175,16 @@ int main(int argc, char *argv[]) {
   /* lets send the first chunk */
   /* TBD: Handle the timing in such a way that the 
    * sleep is not required */
-  usleep(500000);
+  usleep(1000000);
 	
   /* threading to handle things */
-  for (i = 0; i < SPLITS; i++) {
-    pthread_create(&thread[i], NULL, startUdp, &i);
+  for (icounter = 0; icounter < SPLITS; icounter++) {
+		threadCounter[icounter]=icounter;
+    pthread_create(&thread[icounter], NULL, startUdp, &threadCounter[icounter]);
 	}
 
-  for (i = 0; i < SPLITS; i++) {
-    pthread_join(thread[i], NULL);
+  for (icounter = 0; icounter < SPLITS; icounter++) {
+    pthread_join(thread[icounter], NULL);
   }
 
   /* timing */

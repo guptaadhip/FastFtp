@@ -24,6 +24,8 @@ struct udpPacketData{
 char *splits[SPLITS];	/* number of splits */
 long int splitLength = 0;
 int numSplits = 0;  		/* number of splits */
+int icounter=0;
+int threadCounter[SPLITS];
 
 /* Code for File writing*/
 /*void writeToFile() {
@@ -39,12 +41,9 @@ int numSplits = 0;  		/* number of splits */
 }*/
 
 void *startUdp(void *tempX) {
-  long int seqNum = 0;
-  long int readPtr = 0;
   int yes = 1;
   int chunk = *((int *) tempX);
-  char buffer[DGRAM_SIZE];
-  char *temp;
+  //char buffer[DGRAM_SIZE];
   struct sockaddr_in cliAddr, serAddr; 
   socklen_t cliAddrLen;
   int socketFd, rc;
@@ -74,7 +73,7 @@ void *startUdp(void *tempX) {
     fprintf(stderr, "Error: Binding to Socket %d", ntohs(serAddr.sin_port));
     exit(1);
   }
-  
+  fprintf(stderr, "Binded: Socket-%d\n",chunk+1);
 	cliAddrLen = sizeof(cliAddr);
   
 	bzero(splits[chunk], splitLength);
@@ -91,16 +90,16 @@ void *startUdp(void *tempX) {
 		
 		if(udpPacket.sequenceNo != (lastSequence+1)){ 
 			// Change this code to handle re-transmission
-			fprintf(stderr, "Error: Packet unordered or missing\n");
+			//fprintf(stdout, "Error: Packet unordered or missing\n");
 			continue;
 		}	
 		lastSequence=udpPacket.sequenceNo;
 		
 		receivePtr+=udpPacket.bufferLength;
 		//Append the incoming packet in order
-		memcpy((splits[chunk]+receivePtr), udpPacket.buffer, udpPacket.bufferLength);
+		//memcpy((splits[chunk]+receivePtr), udpPacket.buffer, udpPacket.bufferLength);
 		
-		printf("Data Read: %d, Total Data: %ld seq: %ld Len: %ld\n", rc, receivePtr, udpPacket.sequenceNo, udpPacket.bufferLength);
+		//printf("Data Read: %d, Total Data: %ld seq: %ld Len: %ld\n", rc, receivePtr, udpPacket.sequenceNo, udpPacket.bufferLength);
 	}
 	
   close(socketFd);
@@ -114,8 +113,7 @@ int main(int argc, char *argv[]) {
   struct hostent *server;
   char buffer[200];
   char udp_port[6];
-	int icounter = 0;
-  int i;
+	
   pthread_t thread[SPLITS];
 	
   if (argc < 3) {
@@ -166,18 +164,19 @@ int main(int argc, char *argv[]) {
 	
   splitLength = atol((buffer+2));
 	numSplits = atoi(&buffer[0]); // Not used, we will use global SPLITS value
-	//printf("%ld %d\n",splitLength,numSplits);
+	fprintf(stdout,"%ld %d\n",splitLength,numSplits);
 	//exit(1);
 	for(icounter=0; icounter < SPLITS;icounter++){
 		splits[icounter] = malloc(splitLength+1);
 	}
 
-  for (i = 0; i < SPLITS; i++) { 
-    pthread_create(&thread[i], NULL, startUdp, &i);
+  for (icounter = 0; icounter < SPLITS; icounter++) {
+		threadCounter[icounter]=icounter;
+    pthread_create(&thread[icounter], NULL, startUdp, &threadCounter[icounter]);
   }
 
-  for (i = 0; i < SPLITS; i++) { 
-    pthread_join(thread[i], NULL);
+  for (icounter = 0; icounter < SPLITS; icounter++) { 
+    pthread_join(thread[icounter], NULL);
   }
 
   /* writing the data received to a file */
