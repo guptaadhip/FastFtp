@@ -17,13 +17,13 @@
 
 #define TCP_PORT_NO 7007
 #define UDP_PORT_NO 9000
-#define SPLITS 4
-#define DGRAM_SIZE 1470
+#define SPLITS 2
+#define DGRAM_SIZE 1460
 
 #define PATH "data.bin"
 
 struct msgPacket {
-  long int seqNum;
+  long seqNum;
   char data[DGRAM_SIZE];
 };
 
@@ -48,9 +48,14 @@ void sendUdp(int idx) {
     fprintf(stderr, "Error: Creating Socket\n");
     exit(1);
   }
-  
+
+  long int n = 1024 * 9000; //experiment with it
+  if (setsockopt(udpSocket, SOL_SOCKET, SO_RCVBUFFORCE, &n, sizeof(n)) == -1) {
+    fprintf(stderr, "Error: Setting Socket Options\n");
+    exit(1);
+  }
   /* lets copy the address */
-  memcpy(&udpServerAddress, &tcpServerAddr, (sizeof(udpServerAddress) * sizeof(char)));
+  udpServerAddress = tcpServerAddr;
   udpServerAddress.sin_port = htons(UDP_PORT_NO + idx);
   
   serverAddrLen = sizeof(udpServerAddress);
@@ -61,22 +66,23 @@ void sendUdp(int idx) {
       sendSize = DGRAM_SIZE;
     }
     /* fill the structure */
-    msg.seqNum = sendPtr;
-    memcpy(msg.data, (file + sendPtr), (sendSize * sizeof(char)));
+    msg.seqNum = htonl(sendPtr);
+    memcpy(msg.data, file, sendSize);
     
     if(sendto(udpSocket, &msg, sizeof(msg), 0,
               (struct sockaddr *)&udpServerAddress, serverAddrLen) < 0) {
       fprintf(stderr, "Error: Sending Data\n");
       exit(1);
     }
-		sendPtr += sendSize;
+    sendPtr += sendSize;
   }
 }
 
 /* send UDP file */
 void *udp(void *argc) {
   int idx = *((int *) argc);
-  printf("Client Idx: %d\n", idx);
+  fprintf(stdout, "Client Idx: %d\n", idx);
+  fflush(stdout);
   sendUdp(idx);
   return 0;
 }
@@ -125,8 +131,8 @@ int main(int argc, char *argv[]) {
 
   /* Set server address values */
   tcpServerAddr.sin_family = AF_INET;
-  memcpy(serverInfo->h_addr,&tcpServerAddr.sin_addr.s_addr,
-                                                      (serverInfo->h_length * sizeof(char)));
+  bcopy((char *) serverInfo->h_addr,(char *) &tcpServerAddr.sin_addr.s_addr,
+                                                      serverInfo->h_length);
   tcpServerAddr.sin_port = htons(TCP_PORT_NO);
   if (connect(tcpSocket, (struct sockaddr *) &tcpServerAddr,
                                               sizeof(tcpServerAddr)) < 0) {

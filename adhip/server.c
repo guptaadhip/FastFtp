@@ -13,8 +13,8 @@
 
 #define TCP_PORT_NO 7007
 #define UDP_PORT_NO 9000
-#define SPLITS 4
-#define DGRAM_SIZE 1470
+#define SPLITS 2
+#define DGRAM_SIZE 1460
 
 long int fileSize = 0;
 long int splitSize = 0;
@@ -22,13 +22,14 @@ int threadCounter[SPLITS];
 
 /* Receive UDP */
 void receiveUdp(int idx) {
-  long int seqNum = 0;
+  long seqNum = 0;
   char buffer[DGRAM_SIZE + 4];
   struct sockaddr_in clientAddr, serverAddr;
   socklen_t clientAddrLen;
   int udpSocket, rc;
   long int recvSize = 0;
   int yes = 1;
+
   
   udpSocket = socket(AF_INET, SOCK_DGRAM, 0);
   if (udpSocket < 0) {
@@ -41,42 +42,53 @@ void receiveUdp(int idx) {
     exit(1);
   }
 
+  long int n = 1024 * 9000; //experiment with it
+  if (setsockopt(udpSocket, SOL_SOCKET, SO_RCVBUFFORCE, &n, sizeof(n)) == -1) {
+    fprintf(stderr, "Error: Setting Socket Options\n");
+    exit(1);
+  }
+
   serverAddr.sin_family = AF_INET;
   serverAddr.sin_addr.s_addr = INADDR_ANY;
   serverAddr.sin_port = htons(UDP_PORT_NO + idx);
+  fprintf(stdout, "Listening on Port: %d\n", ntohs(serverAddr.sin_port));
+  fflush(stdout);
   
   if (bind(udpSocket, (struct sockaddr *) &serverAddr, sizeof(serverAddr)) < 0) {
     fprintf(stderr, "Error: Binding to Socket %d\n", ntohs(serverAddr.sin_port));
     exit(1);
   }
 	clientAddrLen = sizeof(clientAddr);
+  
+  while (fileSize == 0);
+  splitSize = fileSize / SPLITS + 1;
+
+  struct timeval t0,t1;
+  gettimeofday(&t0, 0);
   while (seqNum <= (splitSize - DGRAM_SIZE)) {
     rc = recvfrom(udpSocket, &buffer, sizeof(buffer), 0,
                   (struct sockaddr *) &clientAddr, &clientAddrLen);
-		if (rc < 0){
-			fprintf(stderr, "Error: Receiving Data\n");
-			exit(1);
-		}
+    if (rc < 0) {
+      fprintf(stderr, "Error: Receiving Data\n");
+      exit(1);
+    }
     memcpy(&seqNum, buffer, sizeof(long int));
     seqNum = ntohl(seqNum);
     recvSize += rc;
     //printf("Data Read: %d, Total Received Size: %ld SeqNum: %ld\n", rc, recvSize, seqNum);
   }
+  /* lets do the needful now */
+  gettimeofday(&t1, 0);
+  long elapsed = (t1.tv_sec-t0.tv_sec)*1000000 + t1.tv_usec-t0.tv_usec;
+  printf("Time taken: %ld microseconds\n", elapsed);
 }
 
 /* Start the UDP Servers */
 void *udp(void *argc) {
   int idx = *((int *) argc);
-  printf("Server Idx: %d\n", idx);
-  /* wait for the tcp command to be received */
-  while (fileSize == 0);
-  struct timeval t0,t1;
-	gettimeofday(&t0, 0);
-  /* lets do the needful now */
   receiveUdp(idx);
-  gettimeofday(&t1, 0);
-	long elapsed = (t1.tv_sec-t0.tv_sec)*1000000 + t1.tv_usec-t0.tv_usec;
-	printf("Time taken: %ld microseconds\n", elapsed);
+  //printf("Server Idx: %d\n", idx);
+  /* wait for the tcp command to be received */
   return 0;
 }
 
