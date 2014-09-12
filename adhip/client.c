@@ -17,31 +17,31 @@
 
 #define TCP_PORT_NO 7007
 #define UDP_PORT_NO 9000
-#define SPLITS 2
-#define DGRAM_SIZE 1460
+#define SPLITS 4
+#define DGRAM_SIZE 1450
 
 #define PATH "data.bin"
-
-struct msgPacket {
-  long seqNum;
-  char data[DGRAM_SIZE];
-};
 
 int threadCounter[SPLITS];
 long int fileSize = 0;
 char *file;
 /* Server address */
 struct sockaddr_in tcpServerAddr;
-long int splitSize = 0;
+uint32_t splitSize = 0;
 
 /* Send file as UDP */
 void sendUdp(int idx) {
-  struct msgPacket msg;
+  char msg[DGRAM_SIZE + 8];
+  usleep(50000);
   struct sockaddr_in udpServerAddress;
   int udpSocket;
   socklen_t serverAddrLen;
   long int sendPtr = 0;
-  int sendSize = DGRAM_SIZE;
+  long int sendSize = DGRAM_SIZE;
+  long int exactStart = idx * splitSize;
+  int rc = 0;
+  long int seqNum = 0;
+  long int sendSizeN = 0;
   
   udpSocket = socket(AF_INET, SOCK_DGRAM, 0);
 	if (udpSocket < 0) {
@@ -49,11 +49,6 @@ void sendUdp(int idx) {
     exit(1);
   }
 
-  long int n = 1024 * 9000; //experiment with it
-  if (setsockopt(udpSocket, SOL_SOCKET, SO_RCVBUFFORCE, &n, sizeof(n)) == -1) {
-    fprintf(stderr, "Error: Setting Socket Options\n");
-    exit(1);
-  }
   /* lets copy the address */
   udpServerAddress = tcpServerAddr;
   udpServerAddress.sin_port = htons(UDP_PORT_NO + idx);
@@ -66,11 +61,14 @@ void sendUdp(int idx) {
       sendSize = DGRAM_SIZE;
     }
     /* fill the structure */
-    msg.seqNum = htonl(sendPtr);
-    memcpy(msg.data, file, sendSize);
-    
-    if(sendto(udpSocket, &msg, sizeof(msg), 0,
-              (struct sockaddr *)&udpServerAddress, serverAddrLen) < 0) {
+    seqNum = htonl(sendPtr);
+    memcpy(msg, &seqNum, sizeof(seqNum));
+    sendSizeN = htonl(sendSize);
+    memcpy((msg+4), &sendSizeN, sizeof(sendSizeN));
+    memcpy((msg + 8), (file + exactStart + sendPtr), sendSize);
+    rc = sendto(udpSocket, &msg, sizeof(msg), 0,
+              (struct sockaddr *)&udpServerAddress, serverAddrLen);
+    if (rc < 0) {
       fprintf(stderr, "Error: Sending Data\n");
       exit(1);
     }
@@ -81,8 +79,6 @@ void sendUdp(int idx) {
 /* send UDP file */
 void *udp(void *argc) {
   int idx = *((int *) argc);
-  fprintf(stdout, "Client Idx: %d\n", idx);
-  fflush(stdout);
   sendUdp(idx);
   return 0;
 }
