@@ -18,6 +18,7 @@
 #define UDP_PORT_NO 9000
 #define SPLITS 4
 #define DGRAM_SIZE 1450
+
 #define OUT_FILE "recv.bin"
 
 using namespace std;
@@ -30,6 +31,9 @@ char *file;
 int tcpSocket;
 struct sockaddr_in tcpClientAddr;
 socklen_t clientLen;
+
+pthread_mutex_t nackLock;
+
 /* NACK */
 struct missedDataNack {
   int idx;
@@ -97,9 +101,9 @@ void receiveUdp(int idx) {
     cout << "Error: Setting Socket Options\n");
     exit(1);
   }
-  long int n = 1024 * 9000; //experiment with it
-  if (setsockopt(udpSocket, SOL_SOCKET, SO_RCVBUFFORCE, &n, sizeof(n)) == -1) {
-    cout << "Error: Setting Socket Options\n");
+  long int n = 1024 * 100; //experiment with it
+  if (setsockopt(udpSocket, SOL_SOCKET, SO_RCVBUF, &n, sizeof(n)) == -1) {
+    cout << "Error: Setting Socket Options" << endl;
     exit(1);
   }*/
 
@@ -132,12 +136,14 @@ void receiveUdp(int idx) {
     //printf("Got seqNum: %ld, size: %d\n", seqNum, rc);
     if (expectedSeqNum < seqNum) {
       while (expectedSeqNum < seqNum) {
-        /* need to get locking */
+        /* need to get Locking */
+        pthread_mutex_lock(&nackLock);
         missedData.idx = idx;
         missedData.missedSeq = expectedSeqNum;
 				missedDataSet.insert(missedData);
         expectedSeqNum += recvDataSize;
 				missedDataPtr++;
+        pthread_mutex_unlock(&nackLock);
       }
 			expectedSeqNum += recvDataSize;
 			memcpy((file + exactLocation + seqNum), (buffer + 8), recvDataSize);
@@ -146,11 +152,13 @@ void receiveUdp(int idx) {
 			memcpy((file + exactLocation + seqNum), (buffer + 8), recvDataSize);
     }else{ //OutofOrder
 			/* got a packet out of order need to handle */
+      pthread_mutex_lock(&nackLock);
 			missedData.idx = idx;
       missedData.missedSeq = seqNum;
 			missedDataSet.erase(missedData);
-			memcpy((file + exactLocation + seqNum), (buffer + 8), recvDataSize); 
 			missedDataPtr--;
+      pthread_mutex_unlock(&nackLock);
+			memcpy((file + exactLocation + seqNum), (buffer + 8), recvDataSize); 
 		}
     //printf("Data Read: %d, Total Received Size: %ld SeqNum: %ld\n", rc, recvSize, seqNum);
   }
@@ -226,6 +234,12 @@ int main(int argc, char *argv[]) {
   //socklen_t clientLen;
 	// int tcpSocket;
   pthread_t thread[SPLITS];
+
+  if (pthread_mutex_init(&nackLock, NULL) != 0) {
+    cout << "mutex init failed" << endl;
+    exit(0);
+  }
+
 	
 	// Creating the Internet domain socket
   waitSocket = socket(AF_INET, SOCK_STREAM, 0);

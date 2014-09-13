@@ -189,6 +189,5 @@ int main(int argc, char *argv[]) {
     pthread_join(thread[i], NULL);
   }
   
-  close(tcpSocket);
   return 0; 
 }
