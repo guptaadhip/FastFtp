@@ -17,7 +17,7 @@
 #include <fcntl.h>
 #include <cctype>
 
-#define TCP_PORT_NO 7009
+#define TCP_PORT_NO 7010
 #define UDP_PORT_NO 9000
 #define SPLITS 4
 #define DGRAM_SIZE 1450
@@ -31,6 +31,7 @@ long int fileSize = 0;
 char *file;
 /* Server address */
 struct sockaddr_in tcpServerAddr;
+char msg[8];
 long int splitSize[SPLITS];
 
 /* Send file as UDP */
@@ -161,10 +162,33 @@ int main(int argc, char *argv[]) {
     pthread_create(&thread[i], NULL, udp, (void *) &threadCounter[i]);
   }
   
+	int count = 0;
+	/* Now receiving the NAK */
+  while(strcmp(msg, "END") != 0)
+  {
+		int idx;
+		long int seqNum;
+    rc = recv(tcpSocket, &msg, sizeof(msg), 0);
+    if (rc < 0) {
+      cout << "ERROR receiving NAK" << endl;
+      exit(1);
+    }
+		if(strcmp(msg, "END") == 0) break;
+		
+		memcpy(&idx, msg, sizeof(int));
+    idx = ntohs(idx);
+    memcpy(&seqNum, (msg + 2), sizeof(long int));
+    seqNum = ntohl(seqNum);
+		count++;
+    cout << idx << " " << seqNum << endl;
+  }
+	
+	cout << "Count: " << count << endl;
+	
   for(i = 0; i < SPLITS; i++) {
     pthread_join(thread[i], NULL);
   }
   
-  //close(tcpSocket);
+  close(tcpSocket);
   return 0; 
 }

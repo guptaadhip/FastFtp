@@ -14,12 +14,11 @@
 #include <set>
 #include <fstream>
 
-#define TCP_PORT_NO 7009
+#define TCP_PORT_NO 7010
 #define UDP_PORT_NO 9000
 #define SPLITS 4
 #define DGRAM_SIZE 1450
 #define OUT_FILE "recv.bin"
-
 
 using namespace std;
 
@@ -27,6 +26,10 @@ long int fileSize = 0;
 long int splitSize[SPLITS];
 int threadCounter[SPLITS];
 char *file;
+/* Purposely made global */
+int tcpSocket;
+struct sockaddr_in tcpClientAddr;
+socklen_t clientLen;
 /* NACK */
 struct missedDataNack {
   int idx;
@@ -40,11 +43,13 @@ std::set<missedDataNack>::iterator it;
 long int missedDataPtr = 0;
 long int totalPackets[SPLITS];
 long int totalRecvSize = 0;
+char msg[8];
 
 
 bool operator<(const missedDataNack& lhs, const missedDataNack& rhs) {
   return ((lhs.idx <= rhs.idx) || (lhs.missedSeq <= rhs.missedSeq));
 }
+
 /* write the file to disk */
 void writeToDisk() {
   ofstream outfile (OUT_FILE,std::ofstream::binary);
@@ -66,6 +71,7 @@ void receiveUdp(int idx) {
   long int recvDataSize = 0;
   /* NACK */
   long int expectedSeqNum = 0;
+  
   int i = 0;
   /* lets do some time out */
   /*struct timeval tv;
@@ -183,14 +189,42 @@ void printMissedSet()
   }
   std::cout << '\n';
 }
+
+void sendMissedSet()
+{
+  int rc = 0;
+  int idxNetwork = 0;
+	long int seqNumNetwork = 0;
+	
+  std::cout << "Sending Missed Data Set now:";
+  for (it = missedDataSet.begin(); it != missedDataSet.end(); ++it)
+  {
+    idxNetwork = htons((*it).idx);
+    memcpy(msg, &idxNetwork, sizeof(idxNetwork));
+    seqNumNetwork = htonl((*it).missedSeq);
+    memcpy((msg+2), &seqNumNetwork, sizeof(seqNumNetwork));
+    
+    rc = sendto(tcpSocket, &msg, sizeof(msg), 0, (struct sockaddr *)&tcpClientAddr, clientLen);
+    if (rc < 0) {
+      cout << "Error: Sending Data" << endl;
+      exit(1);
+    }
+
+  }
+  
+  /* Sending ending message */
+  rc = sendto(tcpSocket, "END", 3, 0, (struct sockaddr *)&tcpClientAddr, clientLen);
+  std::cout << '\n';
+}
 int main(int argc, char *argv[]) {
   long int tot = 0;
   int rc, i;
-  int waitSocket, tcpSocket;
+  int waitSocket;
   long int size;
   struct sockaddr_in tcpAddr;
-  struct sockaddr_in tcpClientAddr;
-  socklen_t clientLen;
+ // struct sockaddr_in tcpClientAddr;
+  //socklen_t clientLen;
+	// int tcpSocket;
   pthread_t thread[SPLITS];
 	
 	// Creating the Internet domain socket
@@ -235,7 +269,9 @@ int main(int argc, char *argv[]) {
   for(i = 0; i < SPLITS; i++) {
     pthread_join(thread[i], NULL);
   }
+	
 	printMissedSet();
+	sendMissedSet();
   for (i = 0; i < SPLITS; i++) {
     tot += totalPackets[i];
   }
