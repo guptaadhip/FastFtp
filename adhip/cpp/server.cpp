@@ -14,10 +14,11 @@
 #include <set>
 #include <fstream>
 
-#define TCP_PORT_NO 7010
+#define TCP_PORT_NO 7007
 #define UDP_PORT_NO 9000
 #define SPLITS 4
 #define DGRAM_SIZE 1450
+#define END "END"
 
 #define OUT_FILE "recv.bin"
 
@@ -193,9 +194,9 @@ void printMissedSet()
   std::cout << "Missed Data Set contains:";
   for (it = missedDataSet.begin(); it != missedDataSet.end(); ++it)
   {
-    cout << "Index No." << (*it).idx << ' ' << (*it).missedSeq << endl;
+    //cout << "Index No." << (*it).idx << ' ' << (*it).missedSeq << endl;
   }
-  std::cout << '\n';
+  //std::cout << '\n';
 }
 
 void sendMissedSet()
@@ -207,6 +208,7 @@ void sendMissedSet()
   std::cout << "Sending Missed Data Set now:";
   for (it = missedDataSet.begin(); it != missedDataSet.end(); ++it)
   {
+		bzero((char *) msg, sizeof(msg));
     idxNetwork = htons((*it).idx);
     memcpy(msg, &idxNetwork, sizeof(idxNetwork));
     seqNumNetwork = htonl((*it).missedSeq);
@@ -219,9 +221,10 @@ void sendMissedSet()
     }
 
   }
-  
+  bzero((char *) msg, sizeof(msg));
   /* Sending ending message */
-  rc = sendto(tcpSocket, "END", 3, 0, (struct sockaddr *)&tcpClientAddr, clientLen);
+	sprintf(msg, "%s", END);
+  rc = sendto(tcpSocket, msg, sizeof(msg), 0, (struct sockaddr *)&tcpClientAddr, clientLen);
   std::cout << '\n';
 }
 int main(int argc, char *argv[]) {
@@ -230,6 +233,7 @@ int main(int argc, char *argv[]) {
   int waitSocket;
   long int size;
   struct sockaddr_in tcpAddr;
+
  // struct sockaddr_in tcpClientAddr;
   //socklen_t clientLen;
 	// int tcpSocket;
@@ -284,7 +288,7 @@ int main(int argc, char *argv[]) {
     pthread_join(thread[i], NULL);
   }
 	
-	printMissedSet();
+	//printMissedSet();
 	sendMissedSet();
   for (i = 0; i < SPLITS; i++) {
     tot += totalPackets[i];
@@ -292,5 +296,6 @@ int main(int argc, char *argv[]) {
   cout << "Packets Received: " << tot << endl; 
   cout << "Missed Packets: " << missedDataPtr << endl; 
   writeToDisk();
+	close(tcpSocket);
   return 0;
 }

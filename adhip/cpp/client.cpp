@@ -17,10 +17,11 @@
 #include <fcntl.h>
 #include <cctype>
 
-#define TCP_PORT_NO 7010
+#define TCP_PORT_NO 7007
 #define UDP_PORT_NO 9000
 #define SPLITS 4
 #define DGRAM_SIZE 1450
+#define END "END"
 
 using namespace std;
 
@@ -70,7 +71,7 @@ void sendUdp(int idx) {
       sendSize = DGRAM_SIZE;
     }
     //printf("Messages Send Size: %d\n", sendSize);
-		cout << "Messages Send Size: " << sendSize;
+		//cout << "Messages Send Size: " << sendSize;
     /* fill the structure */
     seqNum = htonl(sendPtr);
     memcpy(msg, &seqNum, sizeof(seqNum));
@@ -125,6 +126,7 @@ int main(int argc, char *argv[]) {
   int tcpSocket;
   struct hostent *serverInfo;
   pthread_t thread[SPLITS];
+	int yes = 1;
 
   /* buffer the file */
   fileBuffer();
@@ -141,6 +143,11 @@ int main(int argc, char *argv[]) {
     cout << "Socket creation failed" << endl;
   }
 
+	if (setsockopt(tcpSocket, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(yes)) == -1) {
+    cout << "Error: Setting Socket Options" << endl;
+    exit(1);
+  }
+	
   /* Set server address values */
   tcpServerAddr.sin_family = AF_INET;
   bcopy((char *) serverInfo->h_addr,(char *) &tcpServerAddr.sin_addr.s_addr,
@@ -164,7 +171,7 @@ int main(int argc, char *argv[]) {
   
 	int count = 0;
 	/* Now receiving the NAK */
-  while(strcmp(msg, "END") != 0)
+  while(1)
   {
 		int idx;
 		long int seqNum;
@@ -173,7 +180,7 @@ int main(int argc, char *argv[]) {
       cout << "ERROR receiving NAK" << endl;
       exit(1);
     }
-		if(strcmp(msg, "END") == 0) break;
+		if(strcmp(msg, END) == 0) break;
 		
 		memcpy(&idx, msg, sizeof(int));
     idx = ntohs(idx);
@@ -188,6 +195,6 @@ int main(int argc, char *argv[]) {
   for(i = 0; i < SPLITS; i++) {
     pthread_join(thread[i], NULL);
   }
-  
+  close(tcpSocket);
   return 0; 
 }
