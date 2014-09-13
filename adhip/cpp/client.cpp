@@ -31,7 +31,7 @@ long int fileSize = 0;
 char *file;
 /* Server address */
 struct sockaddr_in tcpServerAddr;
-uint32_t splitSize = 0;
+long int splitSize[SPLITS];
 
 /* Send file as UDP */
 void sendUdp(int idx) {
@@ -40,12 +40,17 @@ void sendUdp(int idx) {
   int udpSocket;
   socklen_t serverAddrLen;
   long int sendPtr = 0;
-  long int sendSize = DGRAM_SIZE;
-  long int exactStart = idx * splitSize;
+  int sendSize = DGRAM_SIZE;
+  long int exactStart = 0;
   int rc = 0;
   long int seqNum = 0;
   long int sendSizeN = 0;
+  int i = 0;
   
+  for (i = 0; i < idx; i++) {
+    exactStart += splitSize[idx];
+  }
+
   udpSocket = socket(AF_INET, SOCK_DGRAM, 0);
 	if (udpSocket < 0) {
     cout << "Error: Creating Socket" << endl;
@@ -57,12 +62,13 @@ void sendUdp(int idx) {
   udpServerAddress.sin_port = htons(UDP_PORT_NO + idx);
   
   serverAddrLen = sizeof(udpServerAddress);
-  while (sendPtr < splitSize) {
-    if ((splitSize - sendPtr) < DGRAM_SIZE) {
-      sendSize = splitSize - sendPtr;
+  while (sendPtr < splitSize[idx]) {
+    if ((splitSize[idx] - sendPtr) < DGRAM_SIZE) {
+      sendSize = splitSize[idx] - sendPtr;
     } else {
       sendSize = DGRAM_SIZE;
     }
+    printf("Messages Send Size: %d\n", sendSize);
     /* fill the structure */
     seqNum = htonl(sendPtr);
     memcpy(msg, &seqNum, sizeof(seqNum));
@@ -82,6 +88,12 @@ void sendUdp(int idx) {
 /* send UDP file */
 void *udp(void *argc) {
   int idx = *((int *) argc);
+  /* get the split size */
+  if (idx == (SPLITS - 1)) {
+    splitSize[idx] = (fileSize - ((long int) (fileSize / SPLITS) * (SPLITS - 1)));
+  } else {
+    splitSize[idx] = fileSize / SPLITS;
+  }
   sendUdp(idx);
   return 0;
 }
@@ -103,7 +115,6 @@ void fileBuffer() {
     cout << "Error caching the file" << endl;
     exit(0);
   }
-  splitSize = (fileSize / SPLITS) + 1;
 }
 
 /* main */

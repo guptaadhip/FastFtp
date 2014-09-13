@@ -10,17 +10,19 @@
 #include <pthread.h>
 #include <sys/time.h>
 #include <cmath>
+#include <fstream>
 
 #define TCP_PORT_NO 7007
 #define UDP_PORT_NO 9000
 #define SPLITS 4
 #define DGRAM_SIZE 1450
+#define OUT_FILE "recv.bin"
 
 
 using namespace std;
 
 long int fileSize = 0;
-long int splitSize = 0;
+long int splitSize[SPLITS];
 int threadCounter[SPLITS];
 char *file;
 
@@ -32,7 +34,13 @@ struct missedDataNack {
 
 int missedDataPtr = 0;
 long int totalPackets[SPLITS];
-long int numPackets = 0;
+long int totalRecvSize = 0;
+
+/* write the file to disk */
+void writeToDisk() {
+  ofstream outfile (OUT_FILE,std::ofstream::binary);
+  outfile.write(file, totalRecvSize);
+}
 
 /* Receive UDP */
 void receiveUdp(int idx) {
@@ -43,16 +51,21 @@ void receiveUdp(int idx) {
   int udpSocket, rc;
   long int recvSize = 0;
   int yes = 1;
-  long int exactLocation = idx * splitSize;
+  /* TBD: exactLocation */
+  long int exactLocation = 0;
   long int recvDataSize = 0;
   /* NACK */
   long int expectedSeqNum = 0;
-
+  int i = 0;
   /* lets do some time out */
   /*struct timeval tv;
   tv.tv_sec = 0;
   tv.tv_usec = 100000;*/
   
+  for (i = 0; i < idx; i++) {
+    exactLocation += splitSize[idx];
+  }
+
   udpSocket = socket(AF_INET, SOCK_DGRAM, 0);
   if (udpSocket < 0) {
     cout << "Error: Creating Socket" << endl;
@@ -86,7 +99,7 @@ void receiveUdp(int idx) {
 	clientAddrLen = sizeof(clientAddr);
   
 
-  while (totalPackets[idx] != numPackets) {
+  while (expectedSeqNum < splitSize[idx]) {
     bzero((char *) buffer, sizeof(buffer));
     rc = recvfrom(udpSocket, buffer, sizeof(buffer), 0,
                   (struct sockaddr *) &clientAddr, &clientAddrLen);
@@ -116,6 +129,7 @@ void receiveUdp(int idx) {
     memcpy((file + exactLocation + seqNum), (buffer + 8), recvDataSize); 
     //printf("Data Read: %d, Total Received Size: %ld SeqNum: %ld\n", rc, recvSize, seqNum);
   }
+  totalRecvSize += recvSize;
 }
 
 /* Start the UDP Servers */
@@ -123,15 +137,19 @@ void *udp(void *argc) {
   int idx = *((int *) argc);
   while (fileSize == 0);
   /* sanity to do the file size Split */
-  splitSize = ceil((double)(fileSize / SPLITS));
-  numPackets = ceil((double)(splitSize / DGRAM_SIZE));
+  if (idx == (SPLITS - 1)) {
+    splitSize[idx] = (fileSize - ((long int) (fileSize / SPLITS) * (SPLITS - 1)));
+  } else {
+    splitSize[idx] = fileSize / SPLITS;
+  }
+  printf("%d: Split Size: %ld\n", idx, splitSize[idx]);
   struct timeval t0,t1;
   gettimeofday(&t0, 0);
   receiveUdp(idx);
   /* lets do the needful now */
   gettimeofday(&t1, 0);
   long elapsed = (t1.tv_sec-t0.tv_sec)*1000000 + t1.tv_usec-t0.tv_usec;
-  cout << "Time taken: " << elapsed << " microseconds" << endl;
+  cout << idx << "Time taken: " << elapsed << " microseconds" << endl;
   //printf("Server Idx: %d\n", idx);
   /* wait for the tcp command to be received */
   return 0;
@@ -182,10 +200,9 @@ int main(int argc, char *argv[]) {
     exit(1);
   }
   file = (char *) malloc(size + 1);
+  bzero((char *) file, size);
   fileSize = size;
   //printf("Got File Size: %ld\n", fileSize);
-  
-  splitSize = fileSize / SPLITS;
   
   for(i = 0; i < SPLITS; i++) {
     pthread_join(thread[i], NULL);
@@ -194,7 +211,7 @@ int main(int argc, char *argv[]) {
     tot += totalPackets[i];
   }
   cout << "Packets Received: " << tot << endl; 
-  cout << "Expected Packets: " << (numPackets * SPLITS) << endl; 
   cout << "Missed Packets: " << missedDataPtr << endl; 
+  writeToDisk();
   return 0;
 }
