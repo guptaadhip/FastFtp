@@ -17,14 +17,14 @@
 #include <fcntl.h>
 #include <cctype>
 
-#define TCP_PORT_NO 7007
+#define TCP_PORT_NO 7009
 #define UDP_PORT_NO 9000
 #define SPLITS 4
 #define DGRAM_SIZE 1450
 
 using namespace std;
 
-#define PATH "/tmp/data.bin"
+#define PATH "data.bin"
 
 int threadCounter[SPLITS];
 long int fileSize = 0;
@@ -68,7 +68,8 @@ void sendUdp(int idx) {
     } else {
       sendSize = DGRAM_SIZE;
     }
-    printf("Messages Send Size: %d\n", sendSize);
+    //printf("Messages Send Size: %d\n", sendSize);
+		cout << "Messages Send Size: " << sendSize;
     /* fill the structure */
     seqNum = htonl(sendPtr);
     memcpy(msg, &seqNum, sizeof(seqNum));

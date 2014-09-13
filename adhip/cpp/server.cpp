@@ -10,9 +10,11 @@
 #include <pthread.h>
 #include <sys/time.h>
 #include <cmath>
+
+#include <set>
 #include <fstream>
 
-#define TCP_PORT_NO 7007
+#define TCP_PORT_NO 7009
 #define UDP_PORT_NO 9000
 #define SPLITS 4
 #define DGRAM_SIZE 1450
@@ -25,17 +27,24 @@ long int fileSize = 0;
 long int splitSize[SPLITS];
 int threadCounter[SPLITS];
 char *file;
-
 /* NACK */
 struct missedDataNack {
   int idx;
   long int missedSeq;
-} missedData[65535];
+};
 
-int missedDataPtr = 0;
+/* Declaring and Initializing set */
+std::set<missedDataNack> missedDataSet;
+std::set<missedDataNack>::iterator it;
+
+long int missedDataPtr = 0;
 long int totalPackets[SPLITS];
 long int totalRecvSize = 0;
 
+
+bool operator<(const missedDataNack& lhs, const missedDataNack& rhs) {
+  return ((lhs.idx <= rhs.idx) || (lhs.missedSeq <= rhs.missedSeq));
+}
 /* write the file to disk */
 void writeToDisk() {
   ofstream outfile (OUT_FILE,std::ofstream::binary);
@@ -44,6 +53,7 @@ void writeToDisk() {
 
 /* Receive UDP */
 void receiveUdp(int idx) {
+	struct missedDataNack missedData;
   long int seqNum = 0;
   char buffer[DGRAM_SIZE + 8];
   struct sockaddr_in clientAddr, serverAddr;
@@ -115,18 +125,27 @@ void receiveUdp(int idx) {
     recvSize += recvDataSize;
     //printf("Got seqNum: %ld, size: %d\n", seqNum, rc);
     if (expectedSeqNum < seqNum) {
-      while (expectedSeqNum != seqNum) {
+      while (expectedSeqNum < seqNum) {
         /* need to get locking */
-        missedData[missedDataPtr++].idx = idx;
-        missedData[missedDataPtr++].missedSeq = expectedSeqNum;
+        missedData.idx = idx;
+        missedData.missedSeq = expectedSeqNum;
+				missedDataSet.insert(missedData);
         expectedSeqNum += recvDataSize;
+				missedDataPtr++;
       }
-    } else if (expectedSeqNum > seqNum) {
-      //printf("Out of order seq: %ld\n", seqNum);
-      /* got a packet out of order need to handle */
-    }
-    expectedSeqNum += recvDataSize;
-    memcpy((file + exactLocation + seqNum), (buffer + 8), recvDataSize); 
+			expectedSeqNum += recvDataSize;
+			memcpy((file + exactLocation + seqNum), (buffer + 8), recvDataSize);
+    } else if (expectedSeqNum == seqNum) {
+			expectedSeqNum += recvDataSize;
+			memcpy((file + exactLocation + seqNum), (buffer + 8), recvDataSize);
+    }else{ //OutofOrder
+			/* got a packet out of order need to handle */
+			missedData.idx = idx;
+      missedData.missedSeq = seqNum;
+			missedDataSet.erase(missedData);
+			memcpy((file + exactLocation + seqNum), (buffer + 8), recvDataSize); 
+			missedDataPtr--;
+		}
     //printf("Data Read: %d, Total Received Size: %ld SeqNum: %ld\n", rc, recvSize, seqNum);
   }
   totalRecvSize += recvSize;
@@ -155,6 +174,15 @@ void *udp(void *argc) {
   return 0;
 }
 
+void printMissedSet()
+{
+  std::cout << "Missed Data Set contains:";
+  for (it = missedDataSet.begin(); it != missedDataSet.end(); ++it)
+  {
+    cout << "Index No." << (*it).idx << ' ' << (*it).missedSeq << endl;
+  }
+  std::cout << '\n';
+}
 int main(int argc, char *argv[]) {
   long int tot = 0;
   int rc, i;
@@ -207,6 +235,7 @@ int main(int argc, char *argv[]) {
   for(i = 0; i < SPLITS; i++) {
     pthread_join(thread[i], NULL);
   }
+	printMissedSet();
   for (i = 0; i < SPLITS; i++) {
     tot += totalPackets[i];
   }
